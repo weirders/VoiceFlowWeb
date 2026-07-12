@@ -392,6 +392,14 @@ select option{background:var(--bg-soft);color:var(--text)}
   <div class="dhead"><h2>Settings</h2><button class="xbtn" data-close="setDrawer">✕</button></div>
   <div class="dbody">
     <div class="srow">
+      <div><div class="lab">Speech engine</div><div class="sub" id="engineSub">Built-in: fastest, needs internet &middot; Parakeet &amp; Whisper: run on your device, private, work offline after a one-time model download (Parakeet &asymp;1&nbsp;GB, Whisper &asymp;80&nbsp;MB)</div></div>
+      <select id="engineSel">
+        <option value="webspeech">Built-in (online)</option>
+        <option value="parakeet">Parakeet (local)</option>
+        <option value="whisper">Whisper (local)</option>
+      </select>
+    </div>
+    <div class="srow">
       <div><div class="lab">Language</div><div class="sub">Speech recognition language</div></div>
       <select id="langSel">
         <option value="en-US">English (US)</option>
@@ -470,7 +478,7 @@ const store = (()=>{
 })();
 
 /* ---------- settings ---------- */
-const DEFAULTS = { lang:"en-US", fillers:true, punct:true, sounds:true, theme:"dark" };
+const DEFAULTS = { lang:"en-US", fillers:true, punct:true, sounds:true, theme:"dark", engine:"webspeech" };
 let settings = { ...DEFAULTS, ...JSON.parse(store.getItem("vf.settings") || "{}") };
 function saveSettings(){ store.setItem("vf.settings", JSON.stringify(settings)); }
 function applyTheme(){ document.documentElement.dataset.theme = settings.theme; $("themeTog").checked = settings.theme === "light"; }
@@ -714,6 +722,147 @@ function blip(up){
   }catch(e){}
 }
 
+/* ---------- local engines: Parakeet.js & Whisper (transformers.js) ---------- */
+const WHISPER_LANG = { en:"english", nl:"dutch", de:"german", fr:"french", es:"spanish", it:"italian", pt:"portuguese" };
+
+const LocalSTT = {
+  kind:null, model:null, asr:null,
+  srcNode:null, proc:null, active:false,
+  buf:[], bufLen:0, preBuf:[], speech:false, speechMs:0, silenceMs:0,
+  busy:false, q:Promise.resolve(), interimTimer:null,
+
+  async load(kind, onStatus){
+    if(this.kind === kind && (this.model || this.asr)) return;
+    this.model = null; this.asr = null; this.kind = null;
+    const gpu = !!navigator.gpu;
+    if(kind === "parakeet"){
+      onStatus("Loading Parakeet runtime…");
+      const pk = await import("https://cdn.jsdelivr.net/npm/parakeet.js@1.4.4/+esm");
+      onStatus("Downloading Parakeet model… (one-time, cached)");
+      try{
+        this.model = await pk.fromHub("parakeet-tdt-0.6b-v3",
+          { backend: gpu ? "webgpu" : "wasm", encoderQuant: gpu ? "fp16" : "int8", decoderQuant: "int8" });
+      }catch(e){
+        console.warn("[VoiceFlow] parakeet webgpu failed, retrying wasm:", e);
+        onStatus("Retrying in compatibility mode…");
+        this.model = await pk.fromHub("parakeet-tdt-0.6b-v3",
+          { backend:"wasm", encoderQuant:"int8", decoderQuant:"int8" });
+      }
+    } else {
+      onStatus("Loading Whisper runtime…");
+      const tf = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.0/+esm");
+      let lastPct = -1;
+      this.asr = await tf.pipeline("automatic-speech-recognition", "onnx-community/whisper-base", {
+        device: gpu ? "webgpu" : "wasm",
+        dtype: gpu ? { encoder_model:"fp32", decoder_model_merged:"q4" } : "q8",
+        progress_callback: p => {
+          if(p.status === "progress" && p.total){
+            const pct = Math.round(p.loaded / p.total * 100);
+            if(pct !== lastPct){ lastPct = pct; onStatus("Downloading Whisper… " + pct + "%"); }
+          }
+        }
+      });
+    }
+    this.kind = kind;
+  },
+
+  start(){
+    if(this.active || !audioCtx || !mediaStream) return;
+    this.srcNode = audioCtx.createMediaStreamSource(mediaStream);
+    this.proc = audioCtx.createScriptProcessor(4096, 1, 1);
+    this.srcNode.connect(this.proc);
+    this.proc.connect(audioCtx.destination); // output stays silent; connection just drives processing
+    this._resetSeg();
+    this.proc.onaudioprocess = e => this._feed(e.inputBuffer.getChannelData(0), audioCtx.sampleRate);
+    this.active = true;
+    this.interimTimer = setInterval(()=>this._maybeInterim(), 1500);
+  },
+
+  stop(){ // returns promise that resolves after the last segment is committed
+    if(!this.active) return Promise.resolve();
+    this.active = false;
+    clearInterval(this.interimTimer); this.interimTimer = null;
+    try{ this.proc.disconnect(); this.srcNode.disconnect(); }catch(e){}
+    this.proc = null; this.srcNode = null;
+    if(this.speech && this.speechMs > 350) this._finalize();
+    this._resetSeg();
+    return this.q;
+  },
+
+  _resetSeg(){ this.buf = []; this.bufLen = 0; this.speech = false; this.speechMs = 0; this.silenceMs = 0; },
+
+  _feed(f32, rate){
+    if(!this.active) return;
+    // downsample to 16 kHz mono
+    const ratio = rate / 16000, n = Math.floor(f32.length / ratio);
+    const out = new Float32Array(n);
+    for(let i = 0; i < n; i++) out[i] = f32[(i * ratio) | 0];
+    // frame energy
+    let s = 0; for(let i = 0; i < f32.length; i += 4) s += f32[i] * f32[i];
+    const rms = Math.sqrt(s / (f32.length / 4));
+    const frameMs = f32.length / rate * 1000;
+    if(rms > 0.010){
+      if(!this.speech){ this.speech = true; for(const p of this.preBuf){ this.buf.push(p); this.bufLen += p.length; } }
+      this.silenceMs = 0; this.speechMs += frameMs;
+    } else if(this.speech){
+      this.silenceMs += frameMs;
+    } else {
+      this.preBuf.push(out); if(this.preBuf.length > 3) this.preBuf.shift(); // ~0.25s pre-roll
+      return;
+    }
+    this.buf.push(out); this.bufLen += n;
+    const durS = this.bufLen / 16000;
+    if(this.silenceMs > 750 || durS > 12){
+      if(this.speechMs > 350) this._finalize();
+      else { interimText = ""; render(false); }
+      this._resetSeg();
+      this.preBuf = [];
+    }
+  },
+
+  _takePcm(){
+    const pcm = new Float32Array(this.bufLen); let o = 0;
+    for(const c of this.buf){ pcm.set(c, o); o += c.length; }
+    return pcm;
+  },
+
+  _finalize(){
+    const pcm = this._takePcm();
+    this.q = this.q.then(async ()=>{
+      this.busy = true;
+      try{
+        const text = await this._infer(pcm);
+        if(text){ interimText = ""; commitFinal(text); }
+      }catch(e){ console.warn("[VoiceFlow] transcribe error:", e); }
+      this.busy = false;
+    });
+  },
+
+  _maybeInterim(){
+    if(!this.active || !this.speech || this.busy || this.bufLen < 16000 * 1.2) return;
+    const pcm = this._takePcm();
+    this.busy = true;
+    this._infer(pcm).then(text=>{
+      if(this.active && this.speech && text){ interimText = text; render(false); }
+    }).catch(()=>{}).finally(()=>{ this.busy = false; });
+  },
+
+  async _infer(pcm){
+    let text = "";
+    if(this.kind === "parakeet" && this.model){
+      const r = await this.model.transcribe(pcm, 16000, {});
+      text = (r && r.utterance_text) || "";
+    } else if(this.kind === "whisper" && this.asr){
+      const lang = WHISPER_LANG[settings.lang.slice(0,2)] || "english";
+      const r = await this.asr(pcm, { language: lang, task: "transcribe" });
+      text = (r && r.text) || "";
+    }
+    text = text.trim();
+    if(/^[\[\(].*[\)\]]$/.test(text)) return ""; // whisper noise annotations like (music)
+    return text;
+  }
+};
+
 /* ---------- speech recognition ---------- */
 function buildRec(){
   const r = new SR();
@@ -750,10 +899,22 @@ function buildRec(){
 
 async function startSession(){
   if(listening) return;
-  if(!SR){ $("unsupported").style.display = "block"; return; }
+  if(settings.engine === "webspeech" && !SR){ $("unsupported").style.display = "block"; return; }
   const ok = await ensureMic();
   if(!ok) return;
   hidePermModal();
+  if(settings.engine !== "webspeech"){
+    try{
+      $("pillStatus").textContent = "Loading engine…";
+      await LocalSTT.load(settings.engine, s => { $("pillStatus").textContent = s; });
+    }catch(err){
+      console.warn("[VoiceFlow] engine load failed:", err);
+      toast("Couldn't load " + settings.engine + " — using built-in engine", true);
+      settings.engine = "webspeech"; saveSettings();
+      $("engineSel").value = "webspeech";
+      if(!SR){ $("unsupported").style.display = "block"; $("pillStatus").textContent = "Ready"; return; }
+    }
+  }
   baseText = doc.innerText.replace(/\n\n\n+/g,"\n\n"); // absorb manual edits
   if(baseText.trim() === "" ) baseText = "";
   chunks = chunks.length && !savedThisSession ? chunks : [];
@@ -765,8 +926,12 @@ async function startSession(){
   doc.contentEditable = "false";
   $("pillStatus").textContent = "Listening…";
   $("pillHint").innerHTML = "speak naturally — <kbd>Esc</kbd> to stop";
-  rec = buildRec();
-  try{ rec.start(); recRunning = true; }catch(e){ console.warn(e); }
+  if(settings.engine === "webspeech"){
+    rec = buildRec();
+    try{ rec.start(); recRunning = true; }catch(e){ console.warn(e); }
+  } else {
+    LocalSTT.start();
+  }
   if(!tickTimer) tickTimer = setInterval(tick, 500);
   blip(true);
   render(false);
@@ -777,19 +942,23 @@ function stopSession(){
   activeMs += Date.now() - sessionStart;
   document.body.classList.remove("listening");
   if(rec){ try{ rec.onend = null; rec.stop(); }catch(e){} rec = null; recRunning = false; }
+  const flush = LocalSTT.active ? LocalSTT.stop() : Promise.resolve();
   interimText = "";
-  // close last sentence
-  if(settings.punct){
-    const t = committedText().trimEnd();
-    if(t && !/[.!?\n]$/.test(t)) chunks.push(".");
-  }
   doc.contentEditable = "true";
   $("pillStatus").textContent = "Paused";
   $("pillHint").innerHTML = '<kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd> to resume';
   blip(false);
   render(false);
-  updateStats();
-  autoSave();
+  flush.then(()=>{
+    // close last sentence (after any pending local-engine segment lands)
+    if(settings.punct){
+      const t = committedText().trimEnd();
+      if(t && !/[.!?\n]$/.test(t)) chunks.push(".");
+    }
+    render(false);
+    updateStats();
+    autoSave();
+  });
 }
 function toggleSession(){ listening ? stopSession() : startSession(); }
 
@@ -910,6 +1079,17 @@ document.addEventListener("pointerdown",(e)=>{
 
 /* settings bindings */
 $("langSel").value = settings.lang;
+$("engineSel").value = settings.engine;
+$("engineSel").addEventListener("change", e=>{
+  settings.engine = e.target.value; saveSettings();
+  const wasListening = listening;
+  if(wasListening) stopSession();
+  toast("Engine: " + e.target.selectedOptions[0].text);
+  if(wasListening) setTimeout(startSession, 400);
+});
+if(!navigator.gpu){
+  $("engineSub").innerHTML += " &middot; <b>No WebGPU detected:</b> local engines fall back to CPU (slower).";
+}
 $("fillerTog").checked = settings.fillers;
 $("punctTog").checked = settings.punct;
 $("soundTog").checked = settings.sounds;
