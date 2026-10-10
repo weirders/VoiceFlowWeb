@@ -597,6 +597,9 @@ details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;backgro
 
       <div class="engpanel" data-eng="supertonic">
         <div class="vfield"><label>Voice</label><select id="stVoice"></select></div>
+        <div class="vfield"><label>Run on<span class="hint" id="stDevHint">Auto tries the graphics card first</span></label>
+          <select id="stDevice"><option value="auto">Auto</option><option value="gpu">Graphics card (WebGPU)</option><option value="cpu">Processor (CPU)</option></select>
+        </div>
         <div class="vfield"><label>Quality<span class="hint">more steps = cleaner, slower</span></label><div class="vslider"><input type="range" id="stSteps" min="3" max="16" step="1"><output id="stStepsOut"></output></div></div>
       </div>
 
@@ -963,9 +966,10 @@ async function stTree(repo){
   const sizes = {}; for(const f of await r.json()) sizes[f.path.replace(/^onnx\//, "")] = f.lfs?.size ?? f.size;
   return sizes;
 }
-function stLoad(){
-  if(ST) return Promise.resolve(ST);
+function stLoad(pref){
   if(stLoading) return stLoading;
+  if(ST && (pref !== "cpu" || ST.device === "wasm")) return Promise.resolve(ST);
+  if(ST){ for(const k of ["dp","te","ve","voc"]) try{ ST[k].release(); }catch{} ST = null; } // user switched GPU → CPU
   stLoading = (async () => {
     let repo = null, sizes = {};
     for(const r of ST_REPOS){ try{ sizes = await stTree(r); repo = r; break; }catch(e){} }
@@ -976,20 +980,43 @@ function stLoad(){
     post("status", { text:"Loading Supertonic 3…" });
     const [cfg, indexer] = await Promise.all([ getJSON(base + "onnx/tts.json"), getJSON(base + "onnx/unicode_indexer.json") ]);
     const bufs = await Promise.all(ST_ONNX.map(n => getFile(base + "onnx/" + n, prog, sizes[n])));
-    post("status", { text:"Preparing Supertonic voice…" });
-    const make = async (eps) => Promise.all(bufs.map(b => ort.InferenceSession.create(b, { executionProviders: eps, graphOptimizationLevel:"all" })));
-    let sessions = null, device = "wasm";
-    if(await hasWebGPU()){
-      try{ sessions = await make(["webgpu"]); device = "webgpu"; }
-      catch(e){ console.warn("[VoiceFlowWeb] Supertonic WebGPU failed, using CPU", e); }
+    const fromCache = prog.fromCache();
+    // ONNX Runtime allows only ONE WebGPU session to be created at a time, so build them one by one.
+    const make = async (eps, label) => {
+      const out = [];
+      for(let i = 0; i < bufs.length; i++){
+        post("status", { text:`Preparing Supertonic voice (${label} ${i + 1}/${bufs.length})…` });
+        out.push(await ort.InferenceSession.create(bufs[i], { executionProviders: eps, graphOptimizationLevel:"all" }));
+      }
+      return out;
+    };
+    const release = (ss) => { for(const s of ss || []) try{ s.release(); }catch{} };
+    const useSessions = (ss, device) => { const [dp, te, ve, voc] = ss; ST = { base, cfg, indexer, dp, te, ve, voc, device, sr: cfg.ae.sample_rate, fromCache }; };
+    let gpuError = null;
+    if(pref !== "cpu" && await hasWebGPU()){
+      let ss = null;
+      try{
+        ss = await withTimeout(make(["webgpu"], "GPU"), 180000, "GPU setup took too long");
+        useSessions(ss, "webgpu");
+        // prove the GPU path really works with a tiny test sentence before trusting it
+        post("status", { text:"Testing the GPU…" });
+        const st = styleFromJSON(await getJSON(base + "voice_styles/M1.json"));
+        const pcm = await withTimeout(stSynth(0, "Test.", "en", st, 2, 1), 90000, "GPU test took too long");
+        if(!pcm || !pcm.length || !Number.isFinite(pcm[0])) throw new Error("GPU produced no audio");
+      }catch(e){
+        console.warn("[VoiceFlowWeb] Supertonic on WebGPU failed, switching to CPU:", e);
+        gpuError = String(e?.message || e); ST = null; release(ss);
+      }
     }
-    if(!sessions) sessions = await make(["wasm"]);
-    const [dp, te, ve, voc] = sessions;
-    ST = { base, cfg, indexer, dp, te, ve, voc, device, sr: cfg.ae.sample_rate, fromCache: prog.fromCache() };
+    if(!ST) useSessions(await make(["wasm"], "CPU"), "wasm");
+    ST.gpuError = gpuError;
     return ST;
   })();
-  stLoading.catch(() => { stLoading = null; });
+  stLoading.then(() => { stLoading = null; }, () => { stLoading = null; });
   return stLoading;
+}
+function withTimeout(p, ms, msg){
+  let t; return Promise.race([ p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg)), ms); }) ]).finally(() => clearTimeout(t));
 }
 function styleFromJSON(j){
   const mk = (s) => {
@@ -1025,7 +1052,7 @@ function stPreprocess(text, lang){
   if(!ST_LANGS.includes(lang)) lang = "en";
   return `<${lang}>${text}</${lang}>`;
 }
-async function stSynth(id, text, lang, style, steps, speed){
+async function stSynth(id, text, lang, style, steps, speed, label){
   const { cfg, indexer, dp, te, ve, voc, sr } = ST;
   const t = stPreprocess(text, lang);
   const L = t.length;
@@ -1046,6 +1073,7 @@ async function stSynth(id, text, lang, style, steps, speed){
   const totalStep = new ort.Tensor("float32", Float32Array.of(steps), [1]);
   for(let s = 0; s < steps; s++){
     if(cancelled.has(id)) return null;
+    if(label) post("status", { id, text:`${label}… ${Math.round(100 * s / steps)}%` });
     const out = await ve.run({
       noisy_latent: new ort.Tensor("float32", xt, [1, D, T]), text_emb: textEmb, style_ttl: style.ttl,
       latent_mask: latentMask, text_mask: textMask,
@@ -1141,7 +1169,9 @@ async function speak(m){
   const { id, engine, opts = {} } = m;
   const lang = (m.lang || "en").slice(0, 2);
   if(engine === "supertonic"){
-    await stLoad();
+    const fresh = !ST || (opts.device === "cpu" && ST.device !== "wasm");
+    const s0 = await stLoad(opts.device);
+    if(fresh) post("loaded", { engine:"supertonic", device: s0.device, fromCache: s0.fromCache, gpuError: s0.gpuError });
     if(cancelled.has(id)) return;
     const style = await stStyle(opts);
     const parts = chunkText(m.text, lang === "ko" || lang === "ja" ? 120 : 280);
@@ -1149,8 +1179,9 @@ async function speak(m){
     for(const p of parts){
       if(cancelled.has(id)) return;
       if(p === "\n"){ para = true; continue; }
-      post("status", { id, text:`Speaking ${i + 1}/${n}…` });
-      const pcm = await stSynth(id, p, lang, style, opts.steps || 8, opts.speed || 1);
+      const label = n > 1 ? `Speaking ${i + 1}/${n}` : "Speaking";
+      post("status", { id, text: label + "…" });
+      const pcm = await stSynth(id, p, lang, style, opts.steps || 8, opts.speed || 1, i === 0 ? label : null);
       if(!pcm) return;
       post("chunk", { id, pcm, sr: ST.sr, i: i++, n, para }, [pcm.buffer]); para = false;
     }
@@ -1174,7 +1205,7 @@ self.onmessage = (ev) => {
   queue = queue.then(async () => {
     try{
       if(m.type === "load"){
-        if(m.engine === "supertonic"){ const s = await stLoad(); post("loaded", { engine:"supertonic", device: s.device, fromCache: s.fromCache }); }
+        if(m.engine === "supertonic"){ const s = await stLoad(m.device); post("loaded", { engine:"supertonic", device: s.device, fromCache: s.fromCache, gpuError: s.gpuError }); }
         else { const v = await piperLoad(m.voice || "nl_NL-mls-medium"); post("loaded", { engine:"piper", device:"wasm", fromCache: v.fromCache }); }
       } else if(m.type === "speak"){
         if(cancelled.has(m.id)) return;
@@ -1948,7 +1979,7 @@ doc.addEventListener("input", ()=>{
 const TTS_DEFAULTS = {
   engine:"browser", lang:"auto", speed:1, pauseMs:250, profile:"", lexicon:"",
   browser:{ voice:"", pitch:1 },
-  supertonic:{ voice:"M1", steps:8 },
+  supertonic:{ voice:"M1", steps:8, device:"auto", gpuBroken:false },
   piper:{ voice:"nl_NL-mls-medium", speaker:0, variation:1 },
   clone:{ voice:"", server:"http://127.0.0.1:8004", exaggeration:0.5, cfg:0.5, temperature:0.8, seed:0 }
 };
@@ -2102,7 +2133,15 @@ const TTSWorker = {
         const mb = b => (b / 1e6).toFixed(0);
         this.onStatus && this.onStatus(m.total ? `Downloading ${m.label}… ${Math.round(100 * m.loaded / m.total)}% (${mb(m.loaded)}/${mb(m.total)} MB)` : `Downloading ${m.label}… ${mb(m.loaded)} MB`, m.total ? m.loaded / m.total : null);
       } else if(m.type === "status"){ this.onStatus && this.onStatus(m.text); }
-      else if(m.type === "loaded"){ toast((m.engine === "supertonic" ? "Supertonic 3" : "Piper") + " ready · " + (m.device === "webgpu" ? "WebGPU" : "CPU") + (m.fromCache ? " · cached" : "")); }
+      else if(m.type === "loaded"){
+        if(m.engine === "supertonic"){
+          const st = T().supertonic;
+          if(m.gpuError && st.device !== "cpu"){ st.gpuBroken = true; saveSettings(); toast("Graphics card didn't work for Supertonic — using the processor instead", true); }
+          else if(m.device === "webgpu" && st.gpuBroken){ st.gpuBroken = false; saveSettings(); }
+          renderStDevice(m.device);
+        }
+        if(!m.gpuError) toast((m.engine === "supertonic" ? "Supertonic 3" : "Piper") + " ready · " + (m.device === "webgpu" ? "graphics card" : "processor") + (m.fromCache ? " · cached" : ""));
+      }
       else if(h){
         if(m.type === "chunk") h.chunk(m);
         else if(m.type === "done"){ this.handlers.delete(m.id); h.done(m); }
@@ -2231,7 +2270,7 @@ async function ttsSpeak(rawText, overrides){
   // Supertonic / Piper in the worker
   let opts;
   if(c.engine === "supertonic"){
-    opts = { voice:c.supertonic.voice, steps:c.supertonic.steps, speed:c.speed };
+    opts = { voice:c.supertonic.voice, steps:c.supertonic.steps, speed:c.speed, device: stDevicePref() };
     if(String(c.supertonic.voice).startsWith("style:")){
       const rec = VoiceLib.get(c.supertonic.voice.slice(6));
       if(!rec) return fail("That Supertonic style is no longer in My voices");
@@ -2481,6 +2520,7 @@ function renderTTS(){
   setR("ttsPause", c.pauseMs, v => v + " ms");
   setR("brPitch", c.browser.pitch, v => v.toFixed(2));
   setR("stSteps", c.supertonic.steps, v => v + "");
+  $("stDevice").value = c.supertonic.device; renderStDevice();
   setR("pdSpeaker", c.piper.speaker, v => "#" + v);
   setR("pdVar", c.piper.variation, v => v.toFixed(2));
   setR("clExag", c.clone.exaggeration, v => v.toFixed(2));
@@ -2561,6 +2601,7 @@ function initTTS(){
   // selects
   $("brVoice").addEventListener("change", e => ttsSet("browser.voice", e.target.value));
   $("stVoice").addEventListener("change", e => { ttsSet("supertonic.voice", e.target.value); renderVoiceList(); });
+  $("stDevice").addEventListener("change", e => { T().supertonic.device = e.target.value; if(e.target.value === "gpu") T().supertonic.gpuBroken = false; ttsSave(); renderStDevice(); });
   $("pdVoice").addEventListener("change", e => { T().piper.speaker = 0; ttsSet("piper.voice", e.target.value, true); });
   $("clVoice").addEventListener("change", e => { ttsSet("clone.voice", e.target.value); renderVoiceList(); });
   // sliders
@@ -2688,6 +2729,21 @@ async function checkServer(){
   else if(h.error) setServerStat("bad", "Server error: " + h.error);
   else if(!h.ready) setServerStat("wait", "Server is loading the model… (" + h.device + ")");
   else setServerStat("ok", "Connected · " + h.device + (h.device === "cpu" ? " (slow — no GPU found)" : "") + " · ready");
+}
+function stDevicePref(){
+  const st = T().supertonic;
+  if(st.device === "cpu" || !navigator.gpu) return "cpu";
+  if(st.device === "auto" && st.gpuBroken) return "cpu";
+  return "gpu";
+}
+let stActiveDevice = null;
+function renderStDevice(active){
+  if(active) stActiveDevice = active;
+  const st = T().supertonic, h = $("stDevHint");
+  if(!navigator.gpu) h.textContent = "No WebGPU in this browser — runs on the processor";
+  else if(st.device === "auto" && st.gpuBroken) h.textContent = "Graphics card failed earlier — using the processor";
+  else if(stActiveDevice) h.textContent = "Now running on the " + (stActiveDevice === "webgpu" ? "graphics card" : "processor");
+  else h.textContent = st.device === "auto" ? "Auto tries the graphics card first" : "";
 }
 function ttsSpeakText(text){ // used by history cards
   $("ttsText").value = text; $("ttsText").dispatchEvent(new Event("input"));
