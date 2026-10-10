@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VoiceFlowWeb — Dictation</title>
+<title>VoiceFlowWeb — Dictation &amp; Voice</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='%237c6cff'/><rect x='42' y='24' width='16' height='34' rx='8' fill='white'/><path d='M30 52c0 11 9 20 20 20s20-9 20-20' stroke='white' stroke-width='7' fill='none' stroke-linecap='round'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -311,6 +311,89 @@ select option{background:var(--bg-soft);color:var(--text)}
   display:none;position:fixed;inset:auto 0 0 0;z-index:130;padding:14px 20px;text-align:center;
   background:#2a1620;border-top:1px solid var(--danger);color:#ffb3c2;font-size:13.5px;
 }
+/* ---------- voice (text-to-speech) drawer ---------- */
+.drawer.wide{width:450px}
+.vsec{padding:16px 0 18px;border-bottom:1px solid var(--border)}
+.vsec:first-child{padding-top:2px}
+.vsec:last-child{border-bottom:none}
+.vsec h3{font-size:11px;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-dim);margin-bottom:10px;font-weight:600}
+.vsec .sub{font-size:11.5px;color:var(--text-dim);line-height:1.5;margin-bottom:10px}
+.vsec textarea{
+  width:100%;resize:vertical;min-height:120px;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);
+  font-family:var(--canvas-font);font-size:16px;line-height:1.5;padding:11px 13px;outline:none;
+}
+.vsec textarea:focus,.vsec input[type=text]:focus,.vsec input[type=number]:focus{border-color:rgba(124,108,255,.55)}
+.vsec textarea.mono{font-family:'JetBrains Mono',monospace;font-size:12px;min-height:84px}
+.vrow{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+.vrow .grow{flex:1}
+.vcount{margin-left:auto;font-size:11px;color:var(--text-ghost);font-variant-numeric:tabular-nums}
+.vbtn{
+  font-size:12px;font-family:inherit;font-weight:500;padding:6px 11px;border-radius:9px;cursor:pointer;
+  background:var(--surface-2);border:1px solid var(--border);color:var(--text);white-space:nowrap;
+  transition:border-color .15s,background .15s;
+}
+.vbtn:hover:not(:disabled){border-color:rgba(124,108,255,.5)}
+.vbtn:disabled{opacity:.4;cursor:default}
+.vbtn.primary{background:linear-gradient(135deg,var(--accent),#6a5cf0);border:none;color:#fff}
+.vbtn.danger:hover:not(:disabled){border-color:var(--danger);color:var(--danger)}
+.vbtn.armed{border-color:var(--danger);color:var(--danger)}
+/* player */
+.vplayer{display:flex;align-items:center;gap:12px;margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--border)}
+.vplay{
+  width:44px;height:44px;flex:none;border-radius:50%;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#8b7dff,#6a5cf0 55%,#5346d6);color:#fff;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px var(--glow);
+  transition:transform .1s,filter .15s;
+}
+.vplay:hover{filter:brightness(1.1)} .vplay:active{transform:scale(.93)}
+.vplay svg{width:18px;height:18px;fill:#fff}
+.vplay.on{background:linear-gradient(135deg,#ff7d9d,#ff5c7a 60%,#e84a68);box-shadow:0 4px 18px rgba(255,92,122,.45)}
+.vpinfo{flex:1;min-width:0}
+#ttsStatus{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vprog{height:4px;border-radius:2px;background:var(--surface-2);margin-top:7px;overflow:hidden}
+.vprog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .2s linear}
+/* field rows */
+.vfield{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0}
+.vfield > label{font-size:13px;font-weight:500;flex:none}
+.vfield .hint{font-size:11px;color:var(--text-ghost);font-weight:400;display:block;margin-top:1px}
+.vfield select{max-width:230px;min-width:0;flex:1}
+.vfield input[type=text],.vfield input[type=number],.vrow input[type=text]{
+  background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;
+  padding:7px 10px;border-radius:9px;outline:none;min-width:0;
+}
+.vfield input[type=text]{flex:1;max-width:230px}
+.vfield input[type=number]{width:90px}
+.vslider{display:flex;align-items:center;gap:9px;flex:1;max-width:230px}
+.vslider output{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);min-width:38px;text-align:right}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;background:var(--surface-2);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.4),0 0 0 3px rgba(124,108,255,.45)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(124,108,255,.45)}
+.engpanel{display:none} .engpanel.show{display:block}
+.srvstat{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-dim);margin:2px 0 6px}
+.srvstat i{width:8px;height:8px;border-radius:50%;background:var(--text-ghost);flex:none}
+.srvstat.ok i{background:var(--accent-2)} .srvstat.bad i{background:var(--danger)} .srvstat.wait i{background:#f5b84d}
+/* my voices */
+.vlist{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.vitem{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.vitem .vname{flex:1;min-width:0}
+.vitem .vname b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vitem .vname span{font-size:11px;color:var(--text-dim)}
+.vitem.active{border-color:rgba(78,205,196,.55)}
+.vempty{font-size:12px;color:var(--text-ghost);padding:6px 0}
+.recbox{display:none;margin-top:12px;padding:14px;border-radius:14px;background:var(--surface);border:1px solid rgba(124,108,255,.35)}
+.recbox.show{display:block}
+.recbox .script{font-family:var(--canvas-font);font-size:16px;line-height:1.55;margin-bottom:12px}
+.recbox .rectime{font-family:'JetBrains Mono',monospace;font-size:13px;min-width:44px}
+.reclevel{flex:1;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+.reclevel i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-2),var(--accent),var(--accent-3))}
+.recdot{width:10px;height:10px;border-radius:50%;background:var(--danger);animation:cursorPulse 1.1s ease-in-out infinite;flex:none}
+.recbox audio{width:100%;height:36px;margin-top:4px}
+details.vhelp{margin-top:4px}
+details.vhelp summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--accent-2);list-style:none}
+details.vhelp summary::-webkit-details-marker{display:none}
+details.vhelp ol{margin:10px 0 0 18px;font-size:12px;line-height:1.7;color:var(--text-dim)}
+details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--surface-2);padding:1px 5px;border-radius:5px;color:var(--text)}
 @media (max-width:720px){
   #stats .stat{min-width:60px;padding:5px 8px}
   #wave{width:90px}
@@ -343,6 +426,10 @@ select option{background:var(--bg-soft);color:var(--text)}
       <button class="hbtn" id="newBtn" title="New session">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         New
+      </button>
+      <button class="hbtn" id="voiceBtn" title="Voice — read text aloud (Ctrl+Shift+Enter)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.6 5.6a9 9 0 0 1 0 12.8"/></svg>
+        Voice
       </button>
       <button class="hbtn iconly" id="histBtn" title="History">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
@@ -440,6 +527,147 @@ select option{background:var(--bg-soft);color:var(--text)}
       <div class="cc"><b>“question mark”</b><span>insert ?</span></div>
       <div class="cc"><b>“exclamation mark”</b><span>insert !</span></div>
       <div class="cc" style="margin-top:6px"><span style="font-size:11px">Dutch: nieuwe regel · nieuwe alinea · verwijder dat · punt · komma · vraagteken</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- voice (text-to-speech) drawer -->
+<div class="drawer wide" id="voiceDrawer">
+  <div class="dhead"><h2>Voice</h2><button class="xbtn" data-close="voiceDrawer">✕</button></div>
+  <div class="dbody">
+
+    <div class="vsec">
+      <textarea id="ttsText" spellcheck="false" placeholder="Type or paste text to speak…&#10;&#10;Supertonic also understands <breath> <sigh> <laugh>"></textarea>
+      <div class="vrow">
+        <button class="vbtn" id="ttsFromDoc" title="Copy the current dictation into the box">Use dictation</button>
+        <button class="vbtn" id="ttsClear">Clear</button>
+        <span class="vcount" id="ttsCount">0 characters</span>
+      </div>
+      <div class="vplayer">
+        <button class="vplay" id="ttsPlay" title="Speak (Ctrl+Shift+Enter)"><svg id="ttsPlayIco" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></button>
+        <div class="vpinfo"><div id="ttsStatus">Ready</div><div class="vprog"><i id="ttsProg"></i></div></div>
+        <button class="vbtn" id="ttsDownload" disabled title="Save the last generated audio as a WAV file">⬇ WAV</button>
+      </div>
+    </div>
+
+    <div class="vsec">
+      <h3>Voice profile</h3>
+      <div class="sub">Save your favourite combination of engine, voice and settings, e.g. “Toolbox NL” or “Video intro”.</div>
+      <div class="vrow" style="margin-top:0">
+        <select id="profSel" class="grow" style="max-width:none"></select>
+        <button class="vbtn" id="profSave" title="Overwrite the selected profile with the current settings">Save</button>
+        <button class="vbtn" id="profNew">New…</button>
+        <button class="vbtn danger" id="profDel">Delete</button>
+      </div>
+      <div class="vrow" id="profNameRow" style="display:none">
+        <input type="text" id="profName" class="grow" placeholder="Profile name" maxlength="40">
+        <button class="vbtn primary" id="profNameOk">Save</button>
+        <button class="vbtn" id="profNameCancel">Cancel</button>
+      </div>
+    </div>
+
+    <div class="vsec">
+      <h3>Engine &amp; voice</h3>
+      <div class="vfield"><label>Engine</label>
+        <select id="ttsEngine">
+          <option value="browser">Browser voices (instant)</option>
+          <option value="supertonic">Supertonic 3 (local, best)</option>
+          <option value="piper">Piper (local, light)</option>
+          <option value="clone">My cloned voice (local server)</option>
+        </select>
+      </div>
+      <div class="sub" id="ttsEngineSub" style="margin:2px 0 4px"></div>
+      <div class="vfield"><label>Language</label>
+        <select id="ttsLang">
+          <option value="auto">Same as dictation</option>
+          <option value="nl">Nederlands</option>
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="it">Italiano</option>
+          <option value="pt">Português</option>
+        </select>
+      </div>
+
+      <div class="engpanel" data-eng="browser">
+        <div class="vfield"><label>Voice</label><select id="brVoice"></select></div>
+        <div class="vfield"><label>Pitch</label><div class="vslider"><input type="range" id="brPitch" min="0.5" max="1.5" step="0.05"><output id="brPitchOut"></output></div></div>
+      </div>
+
+      <div class="engpanel" data-eng="supertonic">
+        <div class="vfield"><label>Voice</label><select id="stVoice"></select></div>
+        <div class="vfield"><label>Quality<span class="hint">more steps = cleaner, slower</span></label><div class="vslider"><input type="range" id="stSteps" min="3" max="16" step="1"><output id="stStepsOut"></output></div></div>
+      </div>
+
+      <div class="engpanel" data-eng="piper">
+        <div class="vfield"><label>Voice</label><select id="pdVoice"></select></div>
+        <div class="vfield" id="pdSpeakerRow"><label>Speaker<span class="hint">this voice has many speakers</span></label><div class="vslider"><input type="range" id="pdSpeaker" min="0" max="51" step="1"><output id="pdSpeakerOut"></output></div></div>
+        <div class="vfield"><label>Liveliness</label><div class="vslider"><input type="range" id="pdVar" min="0.2" max="1.6" step="0.05"><output id="pdVarOut"></output></div></div>
+      </div>
+
+      <div class="engpanel" data-eng="clone">
+        <div class="vfield"><label>My voice</label><select id="clVoice"></select></div>
+        <div class="vfield"><label>Expressiveness<span class="hint">0.5 = neutral, higher = more emotion</span></label><div class="vslider"><input type="range" id="clExag" min="0.25" max="1.5" step="0.05"><output id="clExagOut"></output></div></div>
+        <div class="vfield"><label>Pacing<span class="hint">lower = slower, more deliberate</span></label><div class="vslider"><input type="range" id="clCfg" min="0" max="1" step="0.05"><output id="clCfgOut"></output></div></div>
+        <div class="vfield"><label>Variation<span class="hint">lower = steadier delivery</span></label><div class="vslider"><input type="range" id="clTemp" min="0.3" max="1.2" step="0.05"><output id="clTempOut"></output></div></div>
+        <div class="vfield"><label>Take number<span class="hint">same number = same take, 0 = random</span></label><input type="number" id="clSeed" min="0" max="999999" step="1"></div>
+        <div class="vfield"><label>Server</label><input type="text" id="clServer" spellcheck="false"><button class="vbtn" id="clTest">Test</button></div>
+        <div class="srvstat" id="clStat"><i></i><span>Not checked yet</span></div>
+      </div>
+
+      <div class="vfield" id="speedRow"><label>Speed</label><div class="vslider"><input type="range" id="ttsSpeed" min="0.7" max="1.5" step="0.05"><output id="ttsSpeedOut"></output></div></div>
+      <div class="vfield"><label>Pause between sentences</label><div class="vslider"><input type="range" id="ttsPause" min="0" max="1200" step="50"><output id="ttsPauseOut"></output></div></div>
+      <div class="vrow"><button class="vbtn" id="ttsTest">▶ Test this voice</button></div>
+    </div>
+
+    <div class="vsec">
+      <h3>My voices</h3>
+      <div class="sub">Record 10–20 seconds of yourself, the way you want to sound in your videos. A quiet room and a steady distance to the mic matter most. Only clone voices you have permission to use.</div>
+      <div class="vrow" style="margin-top:0">
+        <button class="vbtn primary" id="recStart">● Record my voice</button>
+        <button class="vbtn" id="recUpload">Upload audio</button>
+        <button class="vbtn" id="styleImport" title="Voice style .json from Supertone Voice Builder">Import Supertonic style</button>
+        <input type="file" id="recFile" accept="audio/*" hidden>
+        <input type="file" id="styleFile" accept=".json,application/json" hidden>
+      </div>
+      <div class="recbox" id="recBox">
+        <div class="script" id="recScript"></div>
+        <div class="vrow" id="recLive" style="margin-top:0">
+          <span class="recdot"></span><span class="rectime" id="recTime">0:00</span>
+          <div class="reclevel"><i id="recLevel"></i></div>
+          <button class="vbtn primary" id="recStop">Stop</button>
+          <button class="vbtn" id="recCancel">Cancel</button>
+        </div>
+        <div id="recDone" style="display:none">
+          <audio id="recPreview" controls></audio>
+          <div class="vrow">
+            <input type="text" id="recName" class="grow" placeholder="Name, e.g. Jelle — calm" maxlength="40">
+            <button class="vbtn primary" id="recSave">Save voice</button>
+            <button class="vbtn" id="recDiscard">Discard</button>
+          </div>
+          <div class="sub" id="recInfo" style="margin:8px 0 0"></div>
+        </div>
+      </div>
+      <div class="vlist" id="voiceList"></div>
+    </div>
+
+    <div class="vsec">
+      <h3>Pronunciation</h3>
+      <div class="sub">One per line: <b>word = how to say it</b>. Used by every engine — handy for abbreviations and names.</div>
+      <textarea id="ttsLexicon" class="mono" spellcheck="false" placeholder="LOTOTO = lo-to-to&#10;SHE = es haa ee&#10;PBM = pee bee em"></textarea>
+    </div>
+
+    <div class="vsec">
+      <details class="vhelp">
+        <summary>How to set up voice cloning ›</summary>
+        <ol>
+          <li>Put <code>voiceflow_tts_server.py</code> and <code>Start-VoiceFlow-TTS.bat</code> in the same folder as this app.</li>
+          <li>Double-click <code>Start-VoiceFlow-TTS.bat</code>. The first run installs Python packages (≈3&nbsp;GB) and downloads the Chatterbox model (≈2&nbsp;GB). Needs Python 3.11; an NVIDIA GPU makes it fast.</li>
+          <li>Leave that window open, record or upload your voice above, then pick <b>My cloned voice</b> as engine.</li>
+          <li>Everything stays on your computer. Chatterbox adds an inaudible watermark to its audio.</li>
+        </ol>
+      </details>
     </div>
   </div>
 </div>
@@ -621,11 +849,352 @@ self.onmessage = (ev) => {
 };
 </script>
 
+<script type="text/js-worker" id="ttsWorkerSrc">
+/* VoiceFlowWeb TTS worker — local text-to-speech, nothing leaves the device.
+   Engines:
+   · Supertonic 3 (Supertone, OpenRAIL-M) — 31 languages incl. Dutch, WebGPU with WASM fallback.
+   · Piper (Rhasspy voices, MIT runtime) — small VITS voices, WASM/CPU, phonemized by espeak-ng.
+   Protocol (postMessage):
+     in : {type:"load", engine}            out: progress / status / loaded / error
+     in : {type:"speak", id, engine, text, lang, opts}
+     out: {type:"chunk", id, pcm, sr, i, n} … {type:"done", id}  |  {type:"error", id, message}
+     in : {type:"cancel", id}                                                                  */
+import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.webgpu.min.mjs";
+ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/";
+ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 4) : 1;
+ort.env.logLevel = "error";
+
+const CACHE_NAME = "voiceflowweb-tts-v1";
+const post = (type, data = {}, transfer) => self.postMessage({ type, ...data }, transfer || []);
+const cancelled = new Set();
+
+/* ---------- download with progress + Cache API (works offline after first run) ---------- */
+async function openCache(){ try{ return await caches.open(CACHE_NAME); }catch{ return null; } }
+async function getFile(url, onBytes, expectSize){
+  const cache = await openCache();
+  if(cache){
+    const hit = await cache.match(url);
+    if(hit){
+      const ab = await hit.arrayBuffer();
+      if(!expectSize || ab.byteLength === expectSize){ onBytes && onBytes(ab.byteLength, true); return new Uint8Array(ab); }
+    }
+  }
+  const r = await fetch(url);
+  if(!r.ok) throw new Error("Download failed (" + r.status + "): " + url.split("/").pop());
+  const len = +(r.headers.get("content-length") || 0) || expectSize || 0;
+  // preallocate when the size is known; fall back to collecting parts (e.g. compressed responses)
+  let buf = len ? new Uint8Array(len) : null, parts = [], pos = 0;
+  const rd = r.body.getReader();
+  for(;;){
+    const { done, value } = await rd.read(); if(done) break;
+    if(buf){
+      if(pos + value.length <= buf.length) buf.set(value, pos);
+      else { parts = [buf.slice(0, pos), value]; buf = null; }
+    } else parts.push(value);
+    pos += value.length; onBytes && onBytes(value.length, false);
+  }
+  if(buf){ if(pos !== buf.length) buf = buf.slice(0, pos); }
+  else { buf = new Uint8Array(pos); let o = 0; for(const p of parts){ buf.set(p, o); o += p.length; } }
+  if(cache){ try{ await cache.put(url, new Response(buf, { headers:{ "content-type":"application/octet-stream" } })); }catch{} }
+  return buf;
+}
+const getJSON = async (url, onBytes) => JSON.parse(new TextDecoder().decode(await getFile(url, onBytes)));
+async function hasWebGPU(){ try{ return !!(navigator.gpu && await navigator.gpu.requestAdapter()); }catch{ return false; } }
+function progressReporter(label, total){
+  let loaded = 0, fromCache = true, last = 0;
+  const fn = (n, cached) => {
+    loaded += n; if(!cached) fromCache = false;
+    const now = performance.now();
+    if(now - last > 150){ last = now; post("progress", { label, loaded, total }); }
+  };
+  fn.fromCache = () => fromCache;
+  return fn;
+}
+function gauss(){ const u1 = Math.max(1e-4, Math.random()), u2 = Math.random(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); }
+
+/* ---------- sentence chunking (shared) ---------- */
+const ABBR = /(?:\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|bijv|bv|o\.a|m\.b\.t|i\.v\.m|d\.w\.z|z\.s\.m|nr|ca|dhr|mevr|mw|ir|ing|drs|mr)\.)$|\b[A-Z]\.$/i;
+function chunkText(text, maxLen){
+  const out = [];
+  for(const para of text.trim().split(/\n\s*\n+/)){
+    const p = para.replace(/\s+/g, " ").trim(); if(!p) continue;
+    // sentence split, keeping abbreviations together
+    const raw = p.match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*|$)\s*/g) || [p];
+    const sents = [];
+    for(const s of raw){
+      if(sents.length && ABBR.test(sents[sents.length-1].trim())) sents[sents.length-1] += s;
+      else sents.push(s);
+    }
+    let cur = "";
+    for(let s of sents){
+      s = s.trim(); if(!s) continue;
+      if(s.length > maxLen){ // very long sentence: split on commas, then words
+        if(cur){ out.push(cur); cur = ""; }
+        let piece = "";
+        for(const w of s.split(/(?<=[,;:])\s+|\s+/)){
+          if((piece + " " + w).trim().length > maxLen){ if(piece) out.push(piece.trim()); piece = w; }
+          else piece = piece ? piece + " " + w : w;
+        }
+        if(piece) cur = piece.trim();
+        continue;
+      }
+      if(cur && cur.length + 1 + s.length > maxLen){ out.push(cur); cur = s; }
+      else cur = cur ? cur + " " + s : s;
+    }
+    if(cur) out.push(cur);
+    out.push("\n"); // paragraph marker → longer pause
+  }
+  while(out.length && out[out.length-1] === "\n") out.pop();
+  return out;
+}
+
+/* =====================================================================
+   Supertonic 3
+   ===================================================================== */
+const ST_REPOS = ["Supertone/supertonic-3", "supertone-oss-archive/supertonic-3"];
+const ST_LANGS = ["en","ko","ja","ar","bg","cs","da","de","el","es","et","fi","fr","hi","hr","hu","id","it","lt","lv","nl","pl","pt","ro","ru","sk","sl","sv","tr","uk","vi"];
+const ST_ONNX = ["duration_predictor.onnx", "text_encoder.onnx", "vector_estimator.onnx", "vocoder.onnx"];
+let ST = null, stLoading = null;
+const stStyles = new Map();
+
+async function stTree(repo){
+  const r = await fetch(`https://huggingface.co/api/models/${repo}/tree/main/onnx`);
+  if(!r.ok) throw new Error("tree " + r.status);
+  const sizes = {}; for(const f of await r.json()) sizes[f.path.replace(/^onnx\//, "")] = f.lfs?.size ?? f.size;
+  return sizes;
+}
+function stLoad(){
+  if(ST) return Promise.resolve(ST);
+  if(stLoading) return stLoading;
+  stLoading = (async () => {
+    let repo = null, sizes = {};
+    for(const r of ST_REPOS){ try{ sizes = await stTree(r); repo = r; break; }catch(e){} }
+    if(!repo) repo = ST_REPOS[0]; // offline: rely on cache
+    const base = `https://huggingface.co/${repo}/resolve/main/`;
+    const total = ST_ONNX.reduce((a, n) => a + (sizes[n] || 0), 0);
+    const prog = progressReporter("Supertonic", total);
+    post("status", { text:"Loading Supertonic 3…" });
+    const [cfg, indexer] = await Promise.all([ getJSON(base + "onnx/tts.json"), getJSON(base + "onnx/unicode_indexer.json") ]);
+    const bufs = await Promise.all(ST_ONNX.map(n => getFile(base + "onnx/" + n, prog, sizes[n])));
+    post("status", { text:"Preparing Supertonic voice…" });
+    const make = async (eps) => Promise.all(bufs.map(b => ort.InferenceSession.create(b, { executionProviders: eps, graphOptimizationLevel:"all" })));
+    let sessions = null, device = "wasm";
+    if(await hasWebGPU()){
+      try{ sessions = await make(["webgpu"]); device = "webgpu"; }
+      catch(e){ console.warn("[VoiceFlowWeb] Supertonic WebGPU failed, using CPU", e); }
+    }
+    if(!sessions) sessions = await make(["wasm"]);
+    const [dp, te, ve, voc] = sessions;
+    ST = { base, cfg, indexer, dp, te, ve, voc, device, sr: cfg.ae.sample_rate, fromCache: prog.fromCache() };
+    return ST;
+  })();
+  stLoading.catch(() => { stLoading = null; });
+  return stLoading;
+}
+function styleFromJSON(j){
+  const mk = (s) => {
+    const flat = Float32Array.from(s.data.flat(Infinity));
+    return new ort.Tensor("float32", flat, s.dims);
+  };
+  if(!j || !j.style_ttl || !j.style_dp) throw new Error("Not a Supertonic voice style (needs style_ttl and style_dp)");
+  return { ttl: mk(j.style_ttl), dp: mk(j.style_dp) };
+}
+async function stStyle(opts){
+  if(opts.style){ // custom voice style JSON (e.g. from Supertone Voice Builder)
+    const key = "custom:" + (opts.styleId || "x");
+    if(!stStyles.has(key)) stStyles.set(key, styleFromJSON(opts.style));
+    return stStyles.get(key);
+  }
+  const name = /^[MF][1-5]$/.test(opts.voice || "") ? opts.voice : "M1";
+  if(!stStyles.has(name)) stStyles.set(name, styleFromJSON(await getJSON(ST.base + "voice_styles/" + name + ".json")));
+  return stStyles.get(name);
+}
+function stPreprocess(text, lang){
+  text = text.normalize("NFKD");
+  text = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}]+/gu, "");
+  const rep = { "–":"-", "‑":"-", "—":"-", "_":" ", "“":'"', "”":'"', "‘":"'", "’":"'", "´":"'", "`":"'", "[":" ", "]":" ", "|":" ", "/":" ", "#":" ", "→":" ", "←":" " };
+  for(const [k, v] of Object.entries(rep)) text = text.replaceAll(k, v);
+  text = text.replace(/[♥☆♡©\\]/g, "");
+  const at = lang === "nl" ? " apenstaartje " : lang === "de" ? " at " : " at ";
+  text = text.replaceAll("@", at).replaceAll("e.g.,", "for example, ").replaceAll("i.e.,", "that is, ");
+  text = text.replace(/ ,/g, ",").replace(/ \./g, ".").replace(/ !/g, "!").replace(/ \?/g, "?").replace(/ ;/g, ";").replace(/ :/g, ":").replace(/ '/g, "'");
+  while(text.includes('""')) text = text.replace('""', '"');
+  while(text.includes("''")) text = text.replace("''", "'");
+  text = text.replace(/\s+/g, " ").trim();
+  if(!/[.!?;:,'"')\]}…。」』】〉》›»>]$/.test(text)) text += ".";
+  if(!ST_LANGS.includes(lang)) lang = "en";
+  return `<${lang}>${text}</${lang}>`;
+}
+async function stSynth(id, text, lang, style, steps, speed){
+  const { cfg, indexer, dp, te, ve, voc, sr } = ST;
+  const t = stPreprocess(text, lang);
+  const L = t.length;
+  const ids = new BigInt64Array(L);
+  for(let j = 0; j < L; j++){ const cp = t.codePointAt(j); ids[j] = BigInt(cp < indexer.length ? indexer[cp] : -1); }
+  const textIds = new ort.Tensor("int64", ids, [1, L]);
+  const textMask = new ort.Tensor("float32", new Float32Array(L).fill(1), [1, 1, L]);
+  const d = await dp.run({ text_ids: textIds, style_dp: style.dp, text_mask: textMask });
+  const dur = d.duration.data[0] / speed;
+  const enc = await te.run({ text_ids: textIds, style_ttl: style.ttl, text_mask: textMask });
+  const textEmb = enc.text_emb;
+  const wavLen = Math.floor(dur * sr);
+  const chunk = cfg.ae.base_chunk_size * cfg.ttl.chunk_compress_factor;
+  const T = Math.max(1, Math.ceil(wavLen / chunk));
+  const D = cfg.ttl.latent_dim * cfg.ttl.chunk_compress_factor;
+  let xt = new Float32Array(D * T); for(let i = 0; i < xt.length; i++) xt[i] = gauss();
+  const latentMask = new ort.Tensor("float32", new Float32Array(T).fill(1), [1, 1, T]);
+  const totalStep = new ort.Tensor("float32", Float32Array.of(steps), [1]);
+  for(let s = 0; s < steps; s++){
+    if(cancelled.has(id)) return null;
+    const out = await ve.run({
+      noisy_latent: new ort.Tensor("float32", xt, [1, D, T]), text_emb: textEmb, style_ttl: style.ttl,
+      latent_mask: latentMask, text_mask: textMask,
+      current_step: new ort.Tensor("float32", Float32Array.of(s), [1]), total_step: totalStep
+    });
+    xt = Float32Array.from(out.denoised_latent.data);
+  }
+  const w = await voc.run({ latent: new ort.Tensor("float32", xt, [1, D, T]) });
+  const wav = w.wav_tts.data;
+  return Float32Array.from(wav.subarray(0, Math.min(wav.length, wavLen)));
+}
+
+/* =====================================================================
+   Piper
+   ===================================================================== */
+const PIPER_HF = "https://huggingface.co/diffusionstudio/piper-voices/resolve/main/";
+const PIPER_PHON = "https://cdn.jsdelivr.net/npm/@mintplex-labs/piper-tts-web@1.0.5/dist/piper-o91UDS6e.js";
+const PIPER_WASM = "https://cdn.jsdelivr.net/npm/@diffusionstudio/piper-wasm@1.0.0/build/piper_phonemize";
+let PH = null, phLoading = null;           // phonemizer: { create, wasm, data }
+const piperVoices = new Map();             // voiceId → { session, cfg }
+
+function phLoad(prog){
+  if(PH) return Promise.resolve(PH);
+  if(phLoading) return phLoading;
+  phLoading = (async () => {
+    const mod = await import(PIPER_PHON);
+    const [wasm, data] = await Promise.all([ getFile(PIPER_WASM + ".wasm", prog), getFile(PIPER_WASM + ".data", prog) ]);
+    PH = { create: mod.createPiperPhonemize, wasm, data };
+    return PH;
+  })();
+  phLoading.catch(() => { phLoading = null; });
+  return phLoading;
+}
+function piperPath(v){ // nl_NL-mls-medium → nl/nl_NL/mls/medium/nl_NL-mls-medium.onnx
+  const m = /^([a-z]{2})_([A-Z]{2})-(.+)-(x_low|low|medium|high)$/.exec(v);
+  if(!m) throw new Error("Unknown Piper voice " + v);
+  return `${m[1]}/${m[1]}_${m[2]}/${m[3]}/${m[4]}/${v}.onnx`;
+}
+async function piperLoad(voice){
+  if(piperVoices.has(voice)) return piperVoices.get(voice);
+  const path = PIPER_HF + piperPath(voice);
+  post("status", { text:"Loading Piper voice…" });
+  const prog = progressReporter("Piper", 0);
+  const [cfgBytes, model] = await Promise.all([ getFile(path + ".json"), getFile(path, prog), phLoad(prog) ]);
+  const cfg = JSON.parse(new TextDecoder().decode(cfgBytes));
+  const session = await ort.InferenceSession.create(model, { executionProviders:["wasm"], graphOptimizationLevel:"all" });
+  const v = { session, cfg, fromCache: prog.fromCache() };
+  piperVoices.set(voice, v);
+  return v;
+}
+function phonemize(text, espeakVoice){
+  return new Promise(async (resolve, reject) => {
+    const lines = [];
+    try{
+      const module = await PH.create({
+        print: (d) => { try{ lines.push(JSON.parse(d)); }catch{} },
+        printErr: (m) => console.warn("[piper]", m),
+        wasmBinary: PH.wasm,
+        getPreloadedPackage: () => PH.data.buffer.slice(PH.data.byteOffset, PH.data.byteOffset + PH.data.byteLength),
+        locateFile: (u) => u.endsWith(".wasm") ? PIPER_WASM + ".wasm" : u.endsWith(".data") ? PIPER_WASM + ".data" : u
+      });
+      module.callMain(["-l", espeakVoice, "--input", JSON.stringify([{ text }]), "--espeak_data", "/espeak-ng-data"]);
+      const ids = [];
+      for(const l of lines) if(l && l.phoneme_ids) ids.push(...l.phoneme_ids);
+      resolve(ids);
+    }catch(e){ reject(e); }
+  });
+}
+async function piperSynth(v, text, opts){
+  const ids = await phonemize(text, v.cfg.espeak.voice);
+  if(!ids.length) return new Float32Array(0);
+  const inf = v.cfg.inference || {};
+  const noise = (inf.noise_scale ?? 0.667) * (opts.variation ?? 1);
+  const length = (inf.length_scale ?? 1) / Math.max(0.3, opts.speed || 1);
+  const noiseW = (inf.noise_w ?? 0.8) * (opts.variation ?? 1);
+  const feeds = {
+    input: new ort.Tensor("int64", BigInt64Array.from(ids, x => BigInt(x)), [1, ids.length]),
+    input_lengths: new ort.Tensor("int64", BigInt64Array.of(BigInt(ids.length)), [1]),
+    scales: new ort.Tensor("float32", Float32Array.of(noise, length, noiseW), [3])
+  };
+  if((v.cfg.num_speakers || 1) > 1){
+    const sid = Math.min(Math.max(0, opts.speaker | 0), v.cfg.num_speakers - 1);
+    feeds.sid = new ort.Tensor("int64", BigInt64Array.of(BigInt(sid)), [1]);
+  }
+  const out = await v.session.run(feeds);
+  return Float32Array.from(out.output.data);
+}
+
+/* =====================================================================
+   message loop
+   ===================================================================== */
+async function speak(m){
+  const { id, engine, opts = {} } = m;
+  const lang = (m.lang || "en").slice(0, 2);
+  if(engine === "supertonic"){
+    await stLoad();
+    if(cancelled.has(id)) return;
+    const style = await stStyle(opts);
+    const parts = chunkText(m.text, lang === "ko" || lang === "ja" ? 120 : 280);
+    const n = parts.filter(p => p !== "\n").length; let i = 0, para = false;
+    for(const p of parts){
+      if(cancelled.has(id)) return;
+      if(p === "\n"){ para = true; continue; }
+      post("status", { id, text:`Speaking ${i + 1}/${n}…` });
+      const pcm = await stSynth(id, p, lang, style, opts.steps || 8, opts.speed || 1);
+      if(!pcm) return;
+      post("chunk", { id, pcm, sr: ST.sr, i: i++, n, para }, [pcm.buffer]); para = false;
+    }
+  } else if(engine === "piper"){
+    const v = await piperLoad(opts.voice || "nl_NL-mls-medium");
+    const parts = chunkText(m.text, 400);
+    const n = parts.filter(p => p !== "\n").length; let i = 0, para = false;
+    for(const p of parts){
+      if(cancelled.has(id)) return;
+      if(p === "\n"){ para = true; continue; }
+      const pcm = await piperSynth(v, p, opts);
+      post("chunk", { id, pcm, sr: v.cfg.audio.sample_rate, i: i++, n, para }, [pcm.buffer]); para = false;
+    }
+  } else throw new Error("Unknown engine " + engine);
+}
+
+let queue = Promise.resolve();
+self.onmessage = (ev) => {
+  const m = ev.data;
+  if(m.type === "cancel"){ cancelled.add(m.id); return; }
+  queue = queue.then(async () => {
+    try{
+      if(m.type === "load"){
+        if(m.engine === "supertonic"){ const s = await stLoad(); post("loaded", { engine:"supertonic", device: s.device, fromCache: s.fromCache }); }
+        else { const v = await piperLoad(m.voice || "nl_NL-mls-medium"); post("loaded", { engine:"piper", device:"wasm", fromCache: v.fromCache }); }
+      } else if(m.type === "speak"){
+        if(cancelled.has(m.id)) return;
+        await speak(m);
+        post("done", { id: m.id, cancelled: cancelled.has(m.id) });
+      }
+    }catch(e){ console.error(e); post("error", { id: m.id, message: String(e?.message || e) }); }
+    finally{ if(m.id) cancelled.delete(m.id); }
+  });
+};
+post("ready");
+</script>
+
 <script>
 "use strict";
 /* ============================================================
    VoiceFlowWeb — real-time voice dictation
    Engine: Web Speech API (built into Chrome/Edge, no keys)
+   Voice: text-to-speech with browser voices, Supertonic 3, Piper,
+          or your own cloned voice via a local Chatterbox server
    ============================================================ */
 const $ = id => document.getElementById(id);
 const doc = $("doc"), pill = $("pill"), micBtn = $("micBtn"), wave = $("wave");
@@ -1223,6 +1792,7 @@ function renderHistory(){
       <div class="hprev">${esc(it.text)}</div>
       <div class="hacts">
         <button data-act="load">Open</button>
+        <button data-act="speak">Speak</button>
         <button data-act="copy">Copy</button>
         <button data-act="del" class="del">Delete</button>
       </div>
@@ -1234,7 +1804,8 @@ $("histList").addEventListener("click",(e)=>{
   const id = +card.dataset.id, h = loadHistory(), it = h.find(x=>x.id===id);
   if(!it) return;
   const act = btn ? btn.dataset.act : "load";
-  if(act === "copy"){ navigator.clipboard.writeText(it.text); toast("Copied to clipboard"); }
+  if(act === "speak"){ ttsSpeakText(it.text); }
+  else if(act === "copy"){ navigator.clipboard.writeText(it.text); toast("Copied to clipboard"); }
   else if(act === "del"){ saveHistory(h.filter(x=>x.id!==id)); renderHistory(); toast("Deleted"); }
   else { // load
     if(listening) stopSession();
@@ -1283,7 +1854,7 @@ function closeDrawers(){ document.querySelectorAll(".drawer").forEach(d=>d.class
 /* click outside a drawer closes it */
 document.addEventListener("pointerdown",(e)=>{
   if(!document.querySelector(".drawer.open")) return;
-  if(e.target.closest(".drawer") || e.target.closest("#histBtn") || e.target.closest("#setBtn")) return;
+  if(e.target.closest(".drawer") || e.target.closest("#histBtn") || e.target.closest("#setBtn") || e.target.closest("#voiceBtn")) return;
   closeDrawers();
 });
 
@@ -1327,6 +1898,14 @@ document.addEventListener("keydown",(e)=>{
     else if(listening) stopSession();
   }
   else if(e.ctrlKey && e.shiftKey && (e.key === "C" || e.key === "c")){ e.preventDefault(); $("copyBtn").click(); }
+  else if(e.ctrlKey && e.shiftKey && e.key === "Enter"){ // speak / stop
+    e.preventDefault();
+    if(ttsJob){ ttsStop(); return; }
+    const t = $("ttsText").value.trim() || tidy(committedText()).trim();
+    if(!$("voiceDrawer").classList.contains("open")){ closeDrawers(); $("voiceDrawer").classList.add("open"); }
+    if(!$("ttsText").value.trim() && t){ $("ttsText").value = t; $("ttsText").dispatchEvent(new Event("input")); }
+    ttsSpeak(t);
+  }
 });
 
 /* draggable pill */
@@ -1360,6 +1939,762 @@ doc.addEventListener("input", ()=>{
   baseText = doc.innerText; chunks = []; lastCommitLen = 0;
   updateStats();
 });
+
+/* ============================================================
+   Text-to-speech ("Voice" drawer)
+   Engines: browser voices · Supertonic 3 (local worker) · Piper (local worker)
+            · My cloned voice (Chatterbox on a local server)
+   ============================================================ */
+const TTS_DEFAULTS = {
+  engine:"browser", lang:"auto", speed:1, pauseMs:250, profile:"", lexicon:"",
+  browser:{ voice:"", pitch:1 },
+  supertonic:{ voice:"M1", steps:8 },
+  piper:{ voice:"nl_NL-mls-medium", speaker:0, variation:1 },
+  clone:{ voice:"", server:"http://127.0.0.1:8004", exaggeration:0.5, cfg:0.5, temperature:0.8, seed:0 }
+};
+const TTS_PROFILE_KEYS = ["engine","lang","speed","pauseMs","browser","supertonic","piper","clone"];
+function ttsMerge(def, val){
+  const out = { ...def };
+  for(const k of Object.keys(def)){
+    if(val && val[k] !== undefined){
+      out[k] = (def[k] && typeof def[k] === "object") ? { ...def[k], ...val[k] } : val[k];
+    }
+  }
+  return out;
+}
+settings.tts = ttsMerge(TTS_DEFAULTS, settings.tts);
+const T = () => settings.tts;
+
+const PIPER_VOICES = [
+  ["nl_NL-mls-medium",      "Nederlands · MLS (52 speakers)", "nl", 52],
+  ["nl_BE-nathalie-medium", "Vlaams · Nathalie (female)",     "nl", 1],
+  ["nl_BE-rdh-medium",      "Vlaams · RDH (male)",            "nl", 1],
+  ["en_US-lessac-medium",   "English US · Lessac",            "en", 1],
+  ["en_US-ryan-medium",     "English US · Ryan (male)",       "en", 1],
+  ["en_US-amy-medium",      "English US · Amy (female)",      "en", 1],
+  ["en_GB-alan-medium",     "English UK · Alan (male)",       "en", 1],
+  ["en_GB-cori-medium",     "English UK · Cori (female)",     "en", 1],
+  ["de_DE-thorsten-medium", "Deutsch · Thorsten (male)",      "de", 1],
+  ["de_DE-kerstin-low",     "Deutsch · Kerstin (female)",     "de", 1],
+  ["fr_FR-siwis-medium",    "Français · Siwis (female)",      "fr", 1],
+  ["fr_FR-tom-medium",      "Français · Tom (male)",          "fr", 1],
+  ["es_ES-davefx-medium",   "Español · Davefx (male)",        "es", 1],
+  ["it_IT-paola-medium",    "Italiano · Paola (female)",      "it", 1],
+  ["pt_BR-faber-medium",    "Português · Faber (male)",       "pt", 1]
+];
+const ST_VOICES = [["M1","Male 1"],["M2","Male 2"],["M3","Male 3"],["M4","Male 4"],["M5","Male 5"],
+                   ["F1","Female 1"],["F2","Female 2"],["F3","Female 3"],["F4","Female 4"],["F5","Female 5"]];
+const TTS_SAMPLES = {
+  nl:"Hallo! Zo klinkt deze stem. Veiligheid begint bij jezelf: kijk even om je heen voordat je begint.",
+  en:"Hello! This is how this voice sounds. Safety starts with you: take a moment to look around before you begin.",
+  de:"Hallo! So klingt diese Stimme. Sicherheit beginnt bei dir selbst.",
+  fr:"Bonjour ! Voici comment sonne cette voix. La sécurité commence par vous.",
+  es:"¡Hola! Así suena esta voz. La seguridad empieza por ti.",
+  it:"Ciao! Ecco come suona questa voce. La sicurezza inizia da te.",
+  pt:"Olá! É assim que esta voz soa. A segurança começa por você."
+};
+const REC_SCRIPTS = {
+  nl:"Hallo, dit is mijn stem. Ik neem dit rustig op, zodat de computer leert hoe ik klink. Veiligheid begint bij jezelf: kijk om je heen, denk na voordat je begint, en spreek elkaar aan als iets niet goed voelt. Bedankt voor het luisteren, en tot de volgende keer!",
+  en:"Hi, this is my voice. I'm recording this calmly so the computer can learn how I sound. Safety starts with you: look around, think before you start, and speak up when something doesn't feel right. Thanks for listening, and see you next time!"
+};
+const ttsLang = () => { const l = T().lang === "auto" ? settings.lang.slice(0,2) : T().lang; return l || "en"; };
+const LANG_TAGS = { nl:"nl-NL", en:"en-US", de:"de-DE", fr:"fr-FR", es:"es-ES", it:"it-IT", pt:"pt-BR" };
+
+/* ---------- helpers ---------- */
+function ttsChunk(text, maxLen){
+  const out = [];
+  for(const para of text.trim().split(/\n\s*\n+/)){
+    const p = para.replace(/\s+/g, " ").trim(); if(!p) continue;
+    const sents = p.match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*|$)\s*/g) || [p];
+    let cur = "";
+    for(let s of sents){
+      s = s.trim(); if(!s) continue;
+      if(cur && cur.length + 1 + s.length > maxLen){ out.push({ text:cur }); cur = ""; }
+      while(s.length > maxLen){ // overly long sentence: cut at a comma or space
+        let cut = s.lastIndexOf(",", maxLen); if(cut < maxLen * 0.4) cut = s.lastIndexOf(" ", maxLen); if(cut < 1) cut = maxLen;
+        out.push({ text:s.slice(0, cut + 1).trim() }); s = s.slice(cut + 1).trim();
+      }
+      cur = cur ? cur + " " + s : s;
+    }
+    if(cur) out.push({ text:cur });
+    if(out.length) out[out.length-1].paraEnd = true;
+  }
+  return out;
+}
+function applyLexicon(text){
+  const lines = (T().lexicon || "").split("\n");
+  for(const line of lines){
+    const i = line.indexOf("="); if(i < 1) continue;
+    const from = line.slice(0, i).trim(), to = line.slice(i + 1).trim();
+    if(!from) continue;
+    const esc = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text.replace(new RegExp("(^|[^\\p{L}\\p{N}])" + esc + "(?=$|[^\\p{L}\\p{N}])", "giu"), (m, pre) => pre + to);
+  }
+  return text;
+}
+function encodeWav(pcm, sr){
+  const n = pcm.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const ws = (o, s) => { for(let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0,"RIFF"); v.setUint32(4, 36 + n * 2, true); ws(8,"WAVE"); ws(12,"fmt ");
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,sr,true);
+  v.setUint32(28,sr * 2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); ws(36,"data"); v.setUint32(40,n * 2,true);
+  for(let i = 0, o = 44; i < n; i++, o += 2){ const s = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(o, s < 0 ? s * 32768 : s * 32767, true); }
+  return new Blob([buf], { type:"audio/wav" });
+}
+function decodeWav(ab){ // PCM16 / float32 mono-or-stereo WAV → { pcm, sr }
+  const v = new DataView(ab);
+  if(v.getUint32(0, false) !== 0x52494646) throw new Error("not a WAV file");
+  let o = 12, fmt = null;
+  while(o + 8 <= v.byteLength){
+    const id = v.getUint32(o, false), size = v.getUint32(o + 4, true);
+    if(id === 0x666d7420){ fmt = { tag:v.getUint16(o+8,true), ch:v.getUint16(o+10,true), sr:v.getUint32(o+12,true), bits:v.getUint16(o+22,true) }; }
+    else if(id === 0x64617461 && fmt){
+      const ch = fmt.ch, bytes = fmt.bits / 8, frames = Math.floor(Math.min(size, v.byteLength - o - 8) / (bytes * ch));
+      const pcm = new Float32Array(frames); let p = o + 8;
+      for(let i = 0; i < frames; i++){
+        let s = 0;
+        for(let c = 0; c < ch; c++, p += bytes) s += fmt.tag === 3 ? v.getFloat32(p, true) : bytes === 2 ? v.getInt16(p, true) / 32768 : (v.getInt32(p, true) / 2147483648);
+        pcm[i] = s / ch;
+      }
+      return { pcm, sr: fmt.sr };
+    }
+    o += 8 + size + (size & 1);
+  }
+  throw new Error("WAV has no audio data");
+}
+function fmtSecs(s){ s = Math.max(0, Math.round(s)); return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0"); }
+
+/* ---------- voice library (IndexedDB: recorded clips + Supertonic styles) ---------- */
+const VoiceLib = {
+  _db:null, cache:[],
+  open(){
+    if(this._db) return this._db;
+    this._db = new Promise((res, rej) => {
+      const r = indexedDB.open("voiceflowweb-voices", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("voices", { keyPath:"id" });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return this._db;
+  },
+  async tx(mode, fn){
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const t = db.transaction("voices", mode), st = t.objectStore("voices"), r = fn(st);
+      t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
+    });
+  },
+  async refresh(){ try{ this.cache = (await this.tx("readonly", s => s.getAll())) || []; }catch(e){ console.warn("[VoiceFlowWeb] voice storage unavailable", e); this.cache = []; } this.cache.sort((a,b)=>b.created-a.created); return this.cache; },
+  get(id){ return this.cache.find(v => v.id === id); },
+  async put(rec){ await this.tx("readwrite", s => s.put(rec)); await this.refresh(); },
+  async del(id){ await this.tx("readwrite", s => s.delete(id)); await this.refresh(); }
+};
+
+/* ---------- local engine worker ---------- */
+const TTSWorker = {
+  w:null, nextId:1, handlers:new Map(), onStatus:null,
+  get(){
+    if(this.w) return this.w;
+    const url = URL.createObjectURL(new Blob([$("ttsWorkerSrc").textContent], { type:"text/javascript" }));
+    this.w = new Worker(url, { type:"module" });
+    this.w.onmessage = ({ data:m }) => {
+      const h = m.id ? this.handlers.get(m.id) : null;
+      if(m.type === "progress"){
+        const mb = b => (b / 1e6).toFixed(0);
+        this.onStatus && this.onStatus(m.total ? `Downloading ${m.label}… ${Math.round(100 * m.loaded / m.total)}% (${mb(m.loaded)}/${mb(m.total)} MB)` : `Downloading ${m.label}… ${mb(m.loaded)} MB`, m.total ? m.loaded / m.total : null);
+      } else if(m.type === "status"){ this.onStatus && this.onStatus(m.text); }
+      else if(m.type === "loaded"){ toast((m.engine === "supertonic" ? "Supertonic 3" : "Piper") + " ready · " + (m.device === "webgpu" ? "WebGPU" : "CPU") + (m.fromCache ? " · cached" : "")); }
+      else if(h){
+        if(m.type === "chunk") h.chunk(m);
+        else if(m.type === "done"){ this.handlers.delete(m.id); h.done(m); }
+        else if(m.type === "error"){ this.handlers.delete(m.id); h.error(m.message); }
+      } else if(m.type === "error") console.warn("[VoiceFlowWeb] tts worker:", m.message);
+    };
+    this.w.onerror = (e) => {
+      console.warn("[VoiceFlowWeb] tts worker failed:", e);
+      for(const h of this.handlers.values()) h.error("Voice engine couldn't start (" + (e.message || "network?") + ")");
+      this.handlers.clear(); this.w = null;
+    };
+    return this.w;
+  },
+  speak(engine, text, lang, opts, h){
+    const id = this.nextId++;
+    this.handlers.set(id, h);
+    this.get().postMessage({ type:"speak", id, engine, text, lang, opts });
+    return id;
+  },
+  cancel(id){ if(this.w && id){ this.w.postMessage({ type:"cancel", id }); this.handlers.delete(id); } }
+};
+
+/* ---------- audio player (gapless chunk queue + WAV export) ---------- */
+const Player = {
+  ctx:null, gain:null, srcs:[], parts:[], endAt:0, startAt:0,
+  begin(gain){
+    this.stop();
+    if(!this.ctx){ this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.gain = this.ctx.createGain(); this.gain.connect(this.ctx.destination); }
+    if(this.ctx.state === "suspended") this.ctx.resume();
+    this.gain.gain.value = gain || 1;
+    this.parts = []; this.srcs = [];
+    this.startAt = this.endAt = this.ctx.currentTime + 0.08;
+  },
+  push(pcm, sr, pauseS){
+    if(!pcm || !pcm.length) return;
+    if(pauseS > 0 && this.parts.length) this._enqueue(new Float32Array(Math.round(pauseS * sr)), sr);
+    this._enqueue(pcm, sr);
+  },
+  _enqueue(pcm, sr){
+    this.parts.push({ pcm, sr });
+    const b = this.ctx.createBuffer(1, pcm.length, sr); b.copyToChannel(pcm, 0);
+    const s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.gain);
+    const at = Math.max(this.endAt, this.ctx.currentTime + 0.03);
+    if(!this.srcs.length) this.startAt = at;
+    s.start(at); this.endAt = at + b.duration; this.srcs.push(s);
+  },
+  stop(){ for(const s of this.srcs){ try{ s.stop(); }catch(e){} } this.srcs = []; },
+  queued(){ return this.endAt - this.startAt; },
+  played(){ return this.ctx ? Math.max(0, Math.min(this.ctx.currentTime, this.endAt) - this.startAt) : 0; },
+  left(){ return this.ctx ? this.endAt - this.ctx.currentTime : 0; },
+  wav(){
+    if(!this.parts.length) return null;
+    const sr = this.parts[0].sr;
+    let n = 0; for(const p of this.parts) n += p.sr === sr ? p.pcm.length : Math.round(p.pcm.length * sr / p.sr);
+    const all = new Float32Array(n); let o = 0, peak = 0;
+    for(const p of this.parts){
+      if(p.sr === sr){ all.set(p.pcm, o); o += p.pcm.length; }
+      else { const r = p.sr / sr, m = Math.round(p.pcm.length / r); for(let i = 0; i < m; i++) all[o + i] = p.pcm[Math.min(p.pcm.length - 1, Math.floor(i * r))]; o += m; }
+    }
+    for(let i = 0; i < n; i++){ const a = Math.abs(all[i]); if(a > peak) peak = a; }
+    const g = peak > 0 ? Math.min(0.94 / peak, 4) : 1; // normalise to −0.5 dBFS
+    if(g !== 1) for(let i = 0; i < n; i++) all[i] *= g;
+    return encodeWav(all, sr);
+  }
+};
+
+/* ---------- speaking ---------- */
+let ttsJob = null;          // { engine, cancelled, workerId, genDone, timer }
+let ttsLastWav = null;
+function ttsUI(state, text, frac){
+  const on = state === "busy";
+  $("ttsPlay").classList.toggle("on", on);
+  $("ttsPlayIco").innerHTML = on ? '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>'
+                                 : '<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>';
+  if(text !== undefined) $("ttsStatus").textContent = text;
+  if(frac !== undefined && frac !== null) $("ttsProg").style.width = Math.round(Math.min(1, frac) * 100) + "%";
+}
+function ttsStop(silent){
+  const j = ttsJob; ttsJob = null;
+  if(j){
+    j.cancelled = true; clearInterval(j.timer);
+    if(j.workerId) TTSWorker.cancel(j.workerId);
+    if(j.abort) j.abort.abort();
+  }
+  try{ speechSynthesis.cancel(); }catch(e){}
+  Player.stop();
+  if(!silent) ttsUI("idle", "Stopped", 0);
+}
+function ttsFinishWhenPlayed(job, label){
+  job.genDone = true;
+  const tick = () => {
+    if(ttsJob !== job) return;
+    if(Player.left() <= 0.05){
+      clearInterval(job.timer); ttsJob = null;
+      ttsLastWav = Player.wav(); $("ttsDownload").disabled = !ttsLastWav;
+      ttsUI("idle", label || ("Done · " + fmtSecs(Player.queued()) + " of audio"), 1);
+    }
+  };
+  clearInterval(job.timer); job.timer = setInterval(() => { progressTick(job); tick(); }, 200);
+}
+function progressTick(job){
+  if(ttsJob !== job || job.engine === "browser") return;
+  const q = Player.queued();
+  if(q > 0) $("ttsProg").style.width = Math.round(Math.min(1, Player.played() / q) * 100) + "%";
+}
+
+async function ttsSpeak(rawText, overrides){
+  const text = applyLexicon((rawText || "").trim());
+  if(!text){ toast("Type or paste some text first", true); return; }
+  if(listening) stopSession();                 // don't let the mic pick up our own voice
+  ttsStop(true);
+  const c = { ...T(), ...(overrides || {}) };
+  const lang = ttsLang();
+  const job = { engine:c.engine, cancelled:false, genDone:false, workerId:null, timer:null };
+  ttsJob = job;
+  $("ttsDownload").disabled = true; ttsLastWav = null;
+  ttsUI("busy", "Preparing…", 0);
+  const pause = c.pauseMs / 1000;
+  const fail = (msg) => { if(ttsJob !== job) return; ttsStop(true); ttsUI("idle", msg, 0); toast(msg, true); };
+
+  if(c.engine === "browser") return speakBrowser(text, lang, c, job);
+
+  Player.begin(c.engine === "piper" ? 1.6 : 1);
+  if(c.engine === "clone") return speakClone(text, lang, c, job, fail);
+
+  // Supertonic / Piper in the worker
+  let opts;
+  if(c.engine === "supertonic"){
+    opts = { voice:c.supertonic.voice, steps:c.supertonic.steps, speed:c.speed };
+    if(String(c.supertonic.voice).startsWith("style:")){
+      const rec = VoiceLib.get(c.supertonic.voice.slice(6));
+      if(!rec) return fail("That Supertonic style is no longer in My voices");
+      opts.style = rec.style; opts.styleId = rec.id;
+    }
+  } else {
+    opts = { voice:c.piper.voice, speaker:c.piper.speaker, variation:c.piper.variation, speed:c.speed };
+  }
+  TTSWorker.onStatus = (s, frac) => { if(ttsJob === job && !Player.srcs.length) ttsUI("busy", s, frac); };
+  job.timer = setInterval(() => progressTick(job), 200);
+  job.workerId = TTSWorker.speak(c.engine, text, lang, opts, {
+    chunk(m){
+      if(ttsJob !== job) return;
+      Player.push(m.pcm, m.sr, m.i ? (m.para ? pause * 2.2 + 0.2 : pause) : 0);
+      ttsUI("busy", m.n > 1 ? `Speaking · ${m.i + 1}/${m.n} ready` : "Speaking…");
+    },
+    done(){ if(ttsJob === job) ttsFinishWhenPlayed(job); },
+    error(msg){ fail("Voice error: " + msg); }
+  });
+}
+
+/* browser voices (Web Speech synthesis) */
+function browserVoices(lang){
+  const all = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+  const rank = v => (/natural|neural|online/i.test(v.name) ? 0 : 1) + (v.localService ? 0.5 : 0);
+  return all.filter(v => v.lang && v.lang.toLowerCase().startsWith(lang)).sort((a,b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+}
+function speakBrowser(text, lang, c, job){
+  if(!window.speechSynthesis){ ttsUI("idle", "This browser has no built-in voices", 0); return; }
+  const voices = browserVoices(lang);
+  const voice = voices.find(v => v.voiceURI === c.browser.voice) || voices[0] || null;
+  const parts = ttsChunk(text, 220);
+  let i = 0;
+  speechSynthesis.cancel();
+  const next = () => {
+    if(ttsJob !== job) return;
+    if(i >= parts.length){ ttsJob = null; ttsUI("idle", "Done", 1); return; }
+    const p = parts[i];
+    const u = new SpeechSynthesisUtterance(p.text);
+    if(voice) u.voice = voice;
+    u.lang = voice ? voice.lang : (LANG_TAGS[lang] || lang);
+    u.rate = c.speed; u.pitch = c.browser.pitch;
+    u.onend = () => { i++; ttsUI("busy", undefined, i / parts.length); setTimeout(next, p.paraEnd ? c.pauseMs * 2 + 200 : c.pauseMs); };
+    u.onerror = (e) => { if(e.error !== "interrupted" && e.error !== "canceled"){ console.warn("[VoiceFlowWeb] speech synthesis:", e.error); i++; setTimeout(next, 50); } };
+    ttsUI("busy", parts.length > 1 ? `Speaking · ${i + 1}/${parts.length}` : "Speaking…");
+    speechSynthesis.speak(u);
+  };
+  next();
+}
+
+/* cloned voice via the local Chatterbox server */
+const serverVoiceIds = new Map();   // local voice id → server voice id (per server)
+function serverBase(){ return (T().clone.server || TTS_DEFAULTS.clone.server).trim().replace(/\/+$/, ""); }
+async function serverHealth(timeoutMs){
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), timeoutMs || 3000);
+  try{ const r = await fetch(serverBase() + "/health", { signal:ac.signal }); return r.ok ? await r.json() : null; }
+  catch(e){ return null; } finally{ clearTimeout(t); }
+}
+async function uploadServerVoice(rec){
+  const key = serverBase() + "|" + rec.id;
+  if(serverVoiceIds.has(key)) return serverVoiceIds.get(key);
+  const fd = new FormData(); fd.append("file", rec.wav, (rec.name || "voice") + ".wav");
+  const r = await fetch(serverBase() + "/voices", { method:"POST", body:fd });
+  if(!r.ok) throw new Error("server refused the voice sample (" + r.status + ")");
+  const j = await r.json(); serverVoiceIds.set(key, j.voice_id); return j.voice_id;
+}
+async function speakClone(text, lang, c, job, fail){
+  ttsUI("busy", "Connecting to the voice server…");
+  let h = await serverHealth(3000);
+  if(!h){ setServerStat("bad", "Not running at " + serverBase()); return fail("Voice server isn't running — start Start-VoiceFlow-TTS.bat"); }
+  const t0 = Date.now();
+  while(h && !h.ready && !h.error && ttsJob === job && Date.now() - t0 < 10 * 60 * 1000){
+    ttsUI("busy", "Server is loading the voice model…"); await new Promise(r => setTimeout(r, 2000)); h = await serverHealth(3000);
+  }
+  if(ttsJob !== job) return;
+  if(!h || h.error) return fail("Voice server problem: " + ((h && h.error) || "stopped responding"));
+  setServerStat("ok", "Connected · " + h.device + (h.device === "cpu" ? " (slow — no GPU found)" : ""));
+  if(h.languages && !h.languages.includes(lang)) toast("The clone model doesn't know '" + lang + "' — using English", true);
+  const language = h.languages && !h.languages.includes(lang) ? "en" : lang;
+  let rec = null, voiceId = null;
+  if(c.clone.voice){
+    rec = VoiceLib.get(c.clone.voice);
+    if(!rec) return fail("Pick one of My voices (or record one) for cloning");
+    try{ voiceId = await uploadServerVoice(rec); }catch(e){ return fail(String(e.message || e)); }
+  }
+  const parts = ttsChunk(text, 240), pause = c.pauseMs / 1000;
+  job.timer = setInterval(() => progressTick(job), 200);
+  for(let i = 0; i < parts.length; i++){
+    if(ttsJob !== job) return;
+    ttsUI("busy", parts.length > 1 ? `Generating ${i + 1}/${parts.length}…` : "Generating…");
+    job.abort = new AbortController();
+    const body = JSON.stringify({ text:parts[i].text, language, voice_id:voiceId, exaggeration:c.clone.exaggeration,
+                                  cfg_weight:c.clone.cfg, temperature:c.clone.temperature, seed:+c.clone.seed || 0 });
+    let r;
+    try{
+      r = await fetch(serverBase() + "/tts", { method:"POST", headers:{ "Content-Type":"application/json" }, body, signal:job.abort.signal });
+      if(r.status === 404 && rec){ // server restarted and forgot the sample: upload again once
+        serverVoiceIds.delete(serverBase() + "|" + rec.id);
+        voiceId = await uploadServerVoice(rec);
+        r = await fetch(serverBase() + "/tts", { method:"POST", headers:{ "Content-Type":"application/json" }, body:body.replace(/"voice_id":"[^"]*"/, '"voice_id":"' + voiceId + '"'), signal:job.abort.signal });
+      }
+      if(!r.ok) throw new Error((await r.text()).slice(0, 160) || ("HTTP " + r.status));
+      const { pcm, sr } = decodeWav(await r.arrayBuffer());
+      if(ttsJob !== job) return;
+      Player.push(pcm, sr, i ? (parts[i-1].paraEnd ? pause * 2.2 + 0.2 : pause) : 0);
+    }catch(e){
+      if(ttsJob !== job) return;
+      return fail("Clone error: " + (e.message || e));
+    }
+  }
+  ttsFinishWhenPlayed(job);
+}
+function setServerStat(kind, text){ const el = $("clStat"); el.className = "srvstat " + (kind || ""); el.querySelector("span").textContent = text; }
+
+/* ---------- recording / importing your own voice ---------- */
+const VoiceRec = {
+  stream:null, ctx:null, proc:null, src:null, bufs:[], sr:48000, t0:0, timer:null, blob:null, dur:0, url:null,
+  async start(){
+    try{
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:1 } });
+    }catch(e){ showPermModal(e.name === "NotAllowedError" || e.name === "SecurityError", e.name === "NotFoundError"); return false; }
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.sr = this.ctx.sampleRate; this.bufs = [];
+    this.src = this.ctx.createMediaStreamSource(this.stream);
+    this.proc = this.ctx.createScriptProcessor(4096, 1, 1);
+    const mute = this.ctx.createGain(); mute.gain.value = 0;
+    this.src.connect(this.proc); this.proc.connect(mute); mute.connect(this.ctx.destination);
+    this.proc.onaudioprocess = (e) => {
+      const d = e.inputBuffer.getChannelData(0); this.bufs.push(new Float32Array(d));
+      let pk = 0; for(let i = 0; i < d.length; i += 8){ const a = Math.abs(d[i]); if(a > pk) pk = a; }
+      $("recLevel").style.width = Math.min(100, pk * 140) + "%";
+    };
+    this.t0 = Date.now();
+    this.timer = setInterval(() => {
+      const s = (Date.now() - this.t0) / 1000; $("recTime").textContent = fmtSecs(s);
+      if(s >= 45) $("recStop").click();
+    }, 250);
+    return true;
+  },
+  _teardown(){
+    clearInterval(this.timer); this.timer = null;
+    try{ this.proc.disconnect(); this.src.disconnect(); }catch(e){}
+    if(this.stream) this.stream.getTracks().forEach(t => t.stop());
+    if(this.ctx) this.ctx.close().catch(()=>{});
+    this.stream = this.ctx = this.proc = this.src = null;
+  },
+  cancel(){ this._teardown(); this.bufs = []; },
+  async stop(){
+    const sr = this.sr; const bufs = this.bufs; this._teardown(); this.bufs = [];
+    let n = 0; for(const b of bufs) n += b.length;
+    const pcm = new Float32Array(n); let o = 0; for(const b of bufs){ pcm.set(b, o); o += b.length; }
+    return await prepareVoiceClip(pcm, sr);
+  }
+};
+async function prepareVoiceClip(pcm, sr){
+  // trim silence at both ends (20 ms windows), keep 200 ms margin
+  const win = Math.round(sr * 0.02), th = 0.012;
+  const rms = (i) => { let s = 0, e = Math.min(pcm.length, i + win); for(let k = i; k < e; k++) s += pcm[k] * pcm[k]; return Math.sqrt(s / Math.max(1, e - i)); };
+  let a = 0, b = pcm.length;
+  while(a < b && rms(a) < th) a += win;
+  while(b > a && rms(Math.max(0, b - win)) < th) b -= win;
+  a = Math.max(0, a - Math.round(sr * 0.2)); b = Math.min(pcm.length, b + Math.round(sr * 0.2));
+  let clip = pcm.subarray(a, b);
+  if(clip.length < sr * 3) throw new Error("That's too short — speak for at least 5 seconds (10–20 is ideal)");
+  if(clip.length > sr * 40) clip = clip.subarray(0, sr * 40);
+  // resample to 24 kHz mono with the browser's resampler
+  const OUT = 24000;
+  const off = new OfflineAudioContext(1, Math.ceil(clip.length * OUT / sr), OUT);
+  const buf = off.createBuffer(1, clip.length, sr); buf.copyToChannel(Float32Array.from(clip), 0);
+  const s = off.createBufferSource(); s.buffer = buf; s.connect(off.destination); s.start();
+  const out = (await off.startRendering()).getChannelData(0);
+  let peak = 0; for(let i = 0; i < out.length; i++){ const v = Math.abs(out[i]); if(v > peak) peak = v; }
+  if(peak < 0.02) throw new Error("I hardly heard anything — check the microphone level");
+  const g = Math.min(0.9 / peak, 8); for(let i = 0; i < out.length; i++) out[i] *= g;
+  return { wav: encodeWav(out, OUT), dur: out.length / OUT, quiet: peak < 0.08, clipped: peak > 0.99 };
+}
+async function decodeAudioFile(file){
+  const ab = await file.arrayBuffer();
+  const ctx = new OfflineAudioContext(1, 1, 44100);
+  const ab2 = await ctx.decodeAudioData(ab);
+  const n = ab2.length, pcm = new Float32Array(n);
+  for(let c = 0; c < ab2.numberOfChannels; c++){ const d = ab2.getChannelData(c); for(let i = 0; i < n; i++) pcm[i] += d[i] / ab2.numberOfChannels; }
+  return prepareVoiceClip(pcm, ab2.sampleRate);
+}
+let pendingClip = null;
+function showRecDone(clip, defaultName){
+  pendingClip = clip;
+  $("recLive").style.display = "none"; $("recDone").style.display = "block"; $("recScript").style.display = "none";
+  if(VoiceRec.url) URL.revokeObjectURL(VoiceRec.url);
+  VoiceRec.url = URL.createObjectURL(clip.wav); $("recPreview").src = VoiceRec.url;
+  $("recName").value = defaultName || "";
+  const tips = [];
+  tips.push(fmtSecs(clip.dur) + " of clean audio");
+  if(clip.dur < 8) tips.push("a bit short — 10–20 s clones better");
+  if(clip.quiet) tips.push("quite quiet — move closer to the mic");
+  if(clip.clipped) tips.push("some distortion — move a little further away");
+  $("recInfo").textContent = tips.join(" · ");
+  $("recName").focus();
+}
+function closeRecBox(){
+  $("recBox").classList.remove("show"); pendingClip = null;
+  if(VoiceRec.url){ URL.revokeObjectURL(VoiceRec.url); VoiceRec.url = null; }
+  $("recPreview").removeAttribute("src");
+}
+
+/* ---------- UI: rendering + bindings ---------- */
+function fillSelect(sel, items, value){
+  sel.innerHTML = items.map(([v, label]) => `<option value="${String(v).replace(/"/g,"&quot;")}">${esc(label)}</option>`).join("");
+  if(items.some(([v]) => v === value)) sel.value = value; else if(items.length) sel.value = items[0][0];
+  return sel.value;
+}
+function renderVoiceOptions(){
+  const c = T(), lang = ttsLang();
+  // browser
+  const bv = browserVoices(lang);
+  const items = bv.length ? bv.map(v => [v.voiceURI, v.name.replace(/^Microsoft /, "").replace(/ - .*$/, "") + (v.localService ? "" : " · online")])
+                          : [["", "Default voice for this language"]];
+  c.browser.voice = fillSelect($("brVoice"), items, c.browser.voice);
+  // supertonic: presets + imported styles
+  const styles = VoiceLib.cache.filter(v => v.kind === "style").map(v => ["style:" + v.id, "★ " + v.name]);
+  c.supertonic.voice = fillSelect($("stVoice"), [...ST_VOICES.map(([v, l]) => [v, l + " (" + v + ")"]), ...styles], c.supertonic.voice);
+  // piper: voices for the language first
+  const pv = [...PIPER_VOICES.filter(v => v[2] === lang), ...PIPER_VOICES.filter(v => v[2] !== lang)];
+  c.piper.voice = fillSelect($("pdVoice"), pv.map(v => [v[0], v[1]]), c.piper.voice);
+  const pmeta = PIPER_VOICES.find(v => v[0] === c.piper.voice);
+  $("pdSpeakerRow").style.display = pmeta && pmeta[3] > 1 ? "" : "none";
+  if(pmeta){ $("pdSpeaker").max = Math.max(0, pmeta[3] - 1); c.piper.speaker = Math.min(c.piper.speaker, pmeta[3] - 1); }
+  // cloned voice: recorded clips
+  const clips = VoiceLib.cache.filter(v => v.kind === "clip").map(v => [v.id, v.name + " · " + fmtSecs(v.dur)]);
+  c.clone.voice = fillSelect($("clVoice"), [["", "Built-in default voice"], ...clips], c.clone.voice);
+}
+const ENGINE_SUBS = {
+  browser:"Uses the voices of your browser/OS. In Edge the “Natural” voices sound great but run online (Microsoft). No WAV download.",
+  supertonic:"Runs on your device: ≈400 MB one-time download, then offline. Natural Dutch, 10 voices, plus your own style from Supertone Voice Builder.",
+  piper:"Runs on your device: ≈60–75 MB per voice. Works on any PC, even without a graphics card. Sounds flatter than Supertonic.",
+  clone:"Your own voice, generated by Chatterbox on your computer. Needs the small voice server (see setup below) — fast on an NVIDIA GPU."
+};
+function renderTTS(){
+  const c = T();
+  $("ttsEngine").value = c.engine; $("ttsLang").value = c.lang;
+  document.querySelectorAll("#voiceDrawer .engpanel").forEach(p => p.classList.toggle("show", p.dataset.eng === c.engine));
+  $("ttsEngineSub").textContent = ENGINE_SUBS[c.engine] + (c.engine === "supertonic" && !navigator.gpu ? " No WebGPU here, so it runs on the CPU (slower)." : "");
+  $("speedRow").style.display = c.engine === "clone" ? "none" : "";
+  renderVoiceOptions();
+  const setR = (id, v, fmt) => { $(id).value = v; $(id + "Out").textContent = fmt(+v); };
+  setR("ttsSpeed", c.speed, v => v.toFixed(2) + "×");
+  setR("ttsPause", c.pauseMs, v => v + " ms");
+  setR("brPitch", c.browser.pitch, v => v.toFixed(2));
+  setR("stSteps", c.supertonic.steps, v => v + "");
+  setR("pdSpeaker", c.piper.speaker, v => "#" + v);
+  setR("pdVar", c.piper.variation, v => v.toFixed(2));
+  setR("clExag", c.clone.exaggeration, v => v.toFixed(2));
+  setR("clCfg", c.clone.cfg, v => v.toFixed(2));
+  setR("clTemp", c.clone.temperature, v => v.toFixed(2));
+  $("clSeed").value = c.clone.seed; $("clServer").value = c.clone.server;
+  $("ttsLexicon").value = c.lexicon;
+  renderProfiles(); renderVoiceList();
+}
+function renderVoiceList(){
+  const box = $("voiceList"), c = T();
+  if(!VoiceLib.cache.length){ box.innerHTML = '<div class="vempty">No voices yet. Record one above — it shows up here and under “My cloned voice”.</div>'; return; }
+  box.innerHTML = VoiceLib.cache.map(v => {
+    const active = (v.kind === "clip" && c.engine === "clone" && c.clone.voice === v.id) || (v.kind === "style" && c.engine === "supertonic" && c.supertonic.voice === "style:" + v.id);
+    const meta = v.kind === "clip" ? "Voice sample · " + fmtSecs(v.dur) + " · for cloning" : "Supertonic voice style";
+    return `<div class="vitem${active ? " active" : ""}" data-id="${v.id}">
+      <div class="vname"><b>${esc(v.name)}</b><span>${meta}</span></div>
+      ${v.kind === "clip" ? '<button class="vbtn" data-vact="play">▶</button>' : ""}
+      <button class="vbtn" data-vact="use">${active ? "In use" : "Use"}</button>
+      <button class="vbtn danger" data-vact="del">Delete</button></div>`;
+  }).join("");
+}
+
+/* profiles */
+function loadProfiles(){ try{ return JSON.parse(store.getItem("vf.ttsProfiles") || "[]"); }catch(e){ return []; } }
+function saveProfiles(p){ store.setItem("vf.ttsProfiles", JSON.stringify(p)); }
+function profileSnapshot(){ const c = T(), o = {}; for(const k of TTS_PROFILE_KEYS) o[k] = JSON.parse(JSON.stringify(c[k])); return o; }
+function renderProfiles(){
+  const p = loadProfiles(), sel = $("profSel");
+  sel.innerHTML = '<option value="">— Unsaved settings —</option>' + p.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  sel.value = p.some(x => x.id === T().profile) ? T().profile : "";
+  $("profSave").disabled = !sel.value; $("profDel").disabled = !sel.value;
+  $("profDel").classList.remove("armed"); $("profDel").textContent = "Delete";
+}
+function ttsSave(){ saveSettings(); }
+function ttsSet(path, value, rerender){
+  const c = T(), keys = path.split(".");
+  if(keys.length === 2) c[keys[0]][keys[1]] = value; else c[keys[0]] = value;
+  ttsSave(); if(rerender) renderTTS();
+}
+
+function initTTS(){
+  const c = T();
+  // header button + drawer
+  $("voiceBtn").addEventListener("click", () => {
+    const open = $("voiceDrawer").classList.contains("open");
+    toggleDrawer("voiceDrawer");
+    if(!open && !$("ttsText").value.trim()){ const t = tidy(committedText()).trim(); if(t){ $("ttsText").value = t; updateCount(); } }
+  });
+  const updateCount = () => { const n = $("ttsText").value.length; $("ttsCount").textContent = n + (n === 1 ? " character" : " characters"); };
+  $("ttsText").addEventListener("input", updateCount);
+  $("ttsFromDoc").addEventListener("click", () => { $("ttsText").value = tidy(committedText()).trim(); updateCount(); if(!$("ttsText").value) toast("Nothing dictated yet", true); });
+  $("ttsClear").addEventListener("click", () => { $("ttsText").value = ""; updateCount(); $("ttsText").focus(); });
+  $("ttsPlay").addEventListener("click", () => { ttsJob ? ttsStop() : ttsSpeak($("ttsText").value); });
+  $("ttsTest").addEventListener("click", () => {
+    if(ttsJob){ ttsStop(); return; }
+    ttsSpeak(TTS_SAMPLES[ttsLang()] || TTS_SAMPLES.en);
+  });
+  $("ttsDownload").addEventListener("click", () => {
+    if(!ttsLastWav) return;
+    const a = document.createElement("a"), d = new Date();
+    a.href = URL.createObjectURL(ttsLastWav);
+    a.download = "voiceflow-" + T().engine + "-" + d.toISOString().slice(0,16).replace(/[:T]/g, "-") + ".wav";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  });
+
+  // engine + language
+  $("ttsEngine").addEventListener("change", e => { ttsStop(true); ttsUI("idle", "Ready", 0); ttsSet("engine", e.target.value, true); if(e.target.value === "clone") checkServer(); });
+  $("ttsLang").addEventListener("change", e => {
+    ttsSet("lang", e.target.value);
+    const l = ttsLang(), pv = PIPER_VOICES.find(v => v[0] === T().piper.voice);
+    if(pv && pv[2] !== l){ const first = PIPER_VOICES.find(v => v[2] === l); if(first){ T().piper.voice = first[0]; T().piper.speaker = 0; } }
+    T().browser.voice = ""; ttsSave(); renderTTS();
+  });
+  if(window.speechSynthesis) speechSynthesis.addEventListener("voiceschanged", () => renderVoiceOptions());
+
+  // selects
+  $("brVoice").addEventListener("change", e => ttsSet("browser.voice", e.target.value));
+  $("stVoice").addEventListener("change", e => { ttsSet("supertonic.voice", e.target.value); renderVoiceList(); });
+  $("pdVoice").addEventListener("change", e => { T().piper.speaker = 0; ttsSet("piper.voice", e.target.value, true); });
+  $("clVoice").addEventListener("change", e => { ttsSet("clone.voice", e.target.value); renderVoiceList(); });
+  // sliders
+  const slider = (id, path, fmt, num = parseFloat) => $(id).addEventListener("input", e => { const v = num(e.target.value); $(id + "Out").textContent = fmt(v); ttsSet(path, v); });
+  slider("ttsSpeed", "speed", v => v.toFixed(2) + "×");
+  slider("ttsPause", "pauseMs", v => v + " ms", x => parseInt(x, 10));
+  slider("brPitch", "browser.pitch", v => v.toFixed(2));
+  slider("stSteps", "supertonic.steps", v => v + "", x => parseInt(x, 10));
+  slider("pdSpeaker", "piper.speaker", v => "#" + v, x => parseInt(x, 10));
+  slider("pdVar", "piper.variation", v => v.toFixed(2));
+  slider("clExag", "clone.exaggeration", v => v.toFixed(2));
+  slider("clCfg", "clone.cfg", v => v.toFixed(2));
+  slider("clTemp", "clone.temperature", v => v.toFixed(2));
+  $("clSeed").addEventListener("change", e => ttsSet("clone.seed", Math.max(0, parseInt(e.target.value, 10) || 0)));
+  $("clServer").addEventListener("change", e => { ttsSet("clone.server", e.target.value.trim() || TTS_DEFAULTS.clone.server); checkServer(); });
+  $("clTest").addEventListener("click", checkServer);
+  $("ttsLexicon").addEventListener("input", e => ttsSet("lexicon", e.target.value));
+
+  // profiles
+  $("profSel").addEventListener("change", e => {
+    const p = loadProfiles().find(x => x.id === e.target.value);
+    if(p){ settings.tts = ttsMerge(TTS_DEFAULTS, { ...p.cfg, lexicon:T().lexicon, profile:p.id }); toast("Profile: " + p.name); }
+    else T().profile = "";
+    ttsSave(); renderTTS();
+  });
+  $("profSave").addEventListener("click", () => {
+    const p = loadProfiles(), it = p.find(x => x.id === T().profile); if(!it) return;
+    it.cfg = profileSnapshot(); saveProfiles(p); toast("Saved “" + it.name + "”");
+  });
+  const nameRow = (show) => { $("profNameRow").style.display = show ? "flex" : "none"; if(show){ $("profName").value = ""; $("profName").focus(); } };
+  $("profNew").addEventListener("click", () => nameRow(true));
+  $("profNameCancel").addEventListener("click", () => nameRow(false));
+  const doSaveNew = () => {
+    const name = $("profName").value.trim(); if(!name){ $("profName").focus(); return; }
+    const p = loadProfiles(), id = "p" + Date.now().toString(36);
+    p.push({ id, name, cfg:profileSnapshot() }); saveProfiles(p);
+    T().profile = id; ttsSave(); nameRow(false); renderProfiles(); toast("Profile “" + name + "” saved");
+  };
+  $("profNameOk").addEventListener("click", doSaveNew);
+  $("profName").addEventListener("keydown", e => { if(e.key === "Enter") doSaveNew(); if(e.key === "Escape"){ e.stopPropagation(); nameRow(false); } });
+  $("profDel").addEventListener("click", () => {
+    const b = $("profDel");
+    if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Sure?"; setTimeout(() => { b.classList.remove("armed"); b.textContent = "Delete"; }, 3000); return; }
+    saveProfiles(loadProfiles().filter(x => x.id !== T().profile)); T().profile = ""; ttsSave(); renderProfiles(); toast("Profile deleted");
+  });
+
+  // recording
+  $("recStart").addEventListener("click", async () => {
+    if(VoiceRec.stream) return;
+    ttsStop(true); if(listening) stopSession();
+    $("recBox").classList.add("show"); $("recLive").style.display = "flex"; $("recDone").style.display = "none";
+    $("recScript").style.display = "block";
+    $("recScript").innerHTML = '<span style="font-size:11px;color:var(--text-dim);font-family:Inter,sans-serif;text-transform:uppercase;letter-spacing:1.2px">Read this out loud, in your normal voice</span><br>' + esc(REC_SCRIPTS[ttsLang()] || REC_SCRIPTS.en);
+    $("recTime").textContent = "0:00"; $("recLevel").style.width = "0";
+    if(!(await VoiceRec.start())) closeRecBox();
+  });
+  $("recStop").addEventListener("click", async () => {
+    try{ showRecDone(await VoiceRec.stop(), "My voice " + (VoiceLib.cache.filter(v => v.kind === "clip").length + 1)); }
+    catch(e){ toast(e.message || String(e), true); closeRecBox(); }
+  });
+  $("recCancel").addEventListener("click", () => { VoiceRec.cancel(); closeRecBox(); });
+  $("recDiscard").addEventListener("click", closeRecBox);
+  $("recUpload").addEventListener("click", () => $("recFile").click());
+  $("recFile").addEventListener("change", async e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    try{
+      $("recBox").classList.add("show"); $("recLive").style.display = "none";
+      showRecDone(await decodeAudioFile(f), f.name.replace(/\.[^.]+$/, "").slice(0, 40));
+    }catch(err){ closeRecBox(); toast(err.message && err.message.length < 90 ? err.message : "Couldn't read that audio file", true); }
+  });
+  $("recSave").addEventListener("click", async () => {
+    if(!pendingClip) return;
+    const name = $("recName").value.trim() || "My voice";
+    const id = "v" + Date.now().toString(36);
+    try{
+      await VoiceLib.put({ id, kind:"clip", name, created:Date.now(), dur:pendingClip.dur, wav:pendingClip.wav });
+      T().clone.voice = id; ttsSave(); closeRecBox(); renderTTS();
+      toast("Saved “" + name + "” — pick “My cloned voice” to use it");
+    }catch(e){ toast("Couldn't save the voice: " + (e.message || e), true); }
+  });
+  $("recName").addEventListener("keydown", e => { if(e.key === "Enter") $("recSave").click(); });
+  // Supertonic style import
+  $("styleImport").addEventListener("click", () => $("styleFile").click());
+  $("styleFile").addEventListener("change", async e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    try{
+      const j = JSON.parse(await f.text());
+      if(!j.style_ttl || !j.style_dp || !j.style_ttl.dims || !j.style_dp.dims) throw new Error("not a Supertonic voice style");
+      const id = "s" + Date.now().toString(36), name = f.name.replace(/\.json$/i, "").slice(0, 40);
+      await VoiceLib.put({ id, kind:"style", name, created:Date.now(), style:j });
+      T().supertonic.voice = "style:" + id; ttsSave(); renderTTS();
+      toast("Imported “" + name + "” as a Supertonic voice");
+    }catch(err){ toast("Couldn't import: " + (err.message || err), true); }
+  });
+  // voice list actions
+  let previewAudio = null;
+  $("voiceList").addEventListener("click", async e => {
+    const b = e.target.closest("button"), item = e.target.closest(".vitem"); if(!b || !item) return;
+    const v = VoiceLib.get(item.dataset.id); if(!v) return;
+    const act = b.dataset.vact;
+    if(act === "play"){
+      if(previewAudio){ previewAudio.pause(); URL.revokeObjectURL(previewAudio.src); previewAudio = null; return; }
+      previewAudio = new Audio(URL.createObjectURL(v.wav)); previewAudio.onended = () => { URL.revokeObjectURL(previewAudio.src); previewAudio = null; };
+      previewAudio.play();
+    } else if(act === "use"){
+      if(v.kind === "clip"){ T().engine = "clone"; T().clone.voice = v.id; checkServer(); }
+      else { T().engine = "supertonic"; T().supertonic.voice = "style:" + v.id; }
+      ttsSave(); renderTTS();
+    } else if(act === "del"){
+      if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Sure?"; setTimeout(() => { b.classList.remove("armed"); b.textContent = "Delete"; }, 3000); return; }
+      await VoiceLib.del(v.id);
+      if(T().clone.voice === v.id) T().clone.voice = "";
+      if(T().supertonic.voice === "style:" + v.id) T().supertonic.voice = "M1";
+      ttsSave(); renderTTS(); toast("Deleted “" + v.name + "”");
+    }
+  });
+
+  VoiceLib.refresh().then(renderTTS);
+  renderTTS();
+}
+async function checkServer(){
+  setServerStat("wait", "Checking " + serverBase() + "…");
+  const h = await serverHealth(3000);
+  if(!h) setServerStat("bad", "Not running — start Start-VoiceFlow-TTS.bat");
+  else if(h.error) setServerStat("bad", "Server error: " + h.error);
+  else if(!h.ready) setServerStat("wait", "Server is loading the model… (" + h.device + ")");
+  else setServerStat("ok", "Connected · " + h.device + (h.device === "cpu" ? " (slow — no GPU found)" : "") + " · ready");
+}
+function ttsSpeakText(text){ // used by history cards
+  $("ttsText").value = text; $("ttsText").dispatchEvent(new Event("input"));
+  closeDrawers(); $("voiceDrawer").classList.add("open");
+  ttsSpeak(text);
+}
+initTTS();
 
 /* ---------- boot ---------- */
 render(false);
