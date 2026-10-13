@@ -2775,5 +2775,6 @@ if(SR && !store.getItem("vf.greeted")){
   setTimeout(()=>{ showPermModal(false); store.setItem("vf.greeted","1"); }, 700);
 }
 </script>
+<script>/* offline shell: see sw.js */ if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(e=>console.warn("sw",e));</script>
 </body>
 </html>
