@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>VoiceFlowWeb — Dictation &amp; Voice</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='%237c6cff'/><rect x='42' y='24' width='16' height='34' rx='8' fill='white'/><path d='M30 52c0 11 9 20 20 20s20-9 20-20' stroke='white' stroke-width='7' fill='none' stroke-linecap='round'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -189,7 +189,7 @@ body.listening #micBtn{background:linear-gradient(135deg,#ff7d9d,#ff5c7a 60%,#e8
 body.listening #pillStatus{color:#ff8aa2}
 /* ---------- drawers ---------- */
 .drawer{
-  position:fixed;top:71px;right:0;height:calc(100% - 71px);width:380px;max-width:92vw;z-index:80;
+  position:fixed;top:var(--hdr,71px);right:0;height:calc(100% - var(--hdr,71px));width:380px;max-width:92vw;z-index:80;
   background:color-mix(in srgb, var(--bg-soft) 88%, transparent);
   backdrop-filter:blur(28px);
   border-left:1px solid var(--border);
@@ -285,7 +285,7 @@ select option{background:var(--bg-soft);color:var(--text)}
 .pmCard button.go:active{transform:scale(.98)}
 /* ---------- toast ---------- */
 #toast{
-  position:fixed;top:76px;left:50%;transform:translateX(-50%) translateY(-16px);
+  position:fixed;top:calc(var(--hdr,71px) + 5px);left:50%;transform:translateX(-50%) translateY(-16px);
   z-index:120;padding:11px 20px;border-radius:12px;
   background:var(--bg-soft);border:1px solid var(--border);box-shadow:var(--shadow-lg);
   font-size:13.5px;font-weight:500;opacity:0;pointer-events:none;
@@ -394,11 +394,47 @@ details.vhelp summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(
 details.vhelp summary::-webkit-details-marker{display:none}
 details.vhelp ol{margin:10px 0 0 18px;font-size:12px;line-height:1.7;color:var(--text-dim)}
 details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--surface-2);padding:1px 5px;border-radius:5px;color:var(--text)}
+/* ---------- sync status ---------- */
+.hbtn{position:relative}
+.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--text-ghost);margin-right:7px;vertical-align:1px}
+.sdot[hidden]{display:none}
+.sdot.on{background:var(--accent-2)} .sdot.busy{background:#e0a33a} .sdot.err{background:var(--danger)}
+.sbadge{position:absolute;top:5px;right:5px;margin:0;width:8px;height:8px;box-shadow:0 0 0 2px var(--bg)}
+.sbtn{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:9px;cursor:pointer;flex:none}
+.sbtn:hover{background:var(--surface-2)}
+/* ---------- phone / narrow (also inside ToolDeck on a phone) ----------
+   Header becomes two rows: logo + icon buttons, then the stats strip.
+   Drawers go full width, the pill shrinks and drops the keyboard hint. */
 @media (max-width:720px){
-  #stats .stat{min-width:60px;padding:5px 8px}
-  #wave{width:90px}
+  header{flex-wrap:wrap;gap:8px 10px;padding:10px 12px;padding-top:max(10px, env(safe-area-inset-top))}
+  .logo{font-size:15px;gap:8px}
+  .logo .web{display:none}
+  .hbtns{margin-left:auto;gap:6px}
+  .hbtn{height:38px;width:38px;padding:0;justify-content:center;border-radius:11px}
+  .hbtn .lbl{display:none}
+  .hbtn svg{width:17px;height:17px}
+  #stats{order:3;width:100%;margin:0;gap:6px}
+  #stats .stat{flex:1;min-width:0;flex-direction:row;justify-content:center;align-items:baseline;gap:6px;padding:5px 8px;border-radius:10px}
+  .stat b{font-size:14px}
+  #canvasWrap{padding:22px 16px 170px}
   #doc{font-size:21px}
+  #doc:empty::before,#doc.showhint::before{font-size:18px}
+  .drawer,.drawer.wide{width:100%;max-width:100%;border-left:none}
+  .dbody{padding:14px 16px calc(30px + env(safe-area-inset-bottom))}
+  .srow{gap:10px}
+  select{max-width:150px}
+  #pill{bottom:max(18px, calc(env(safe-area-inset-bottom) + 10px));padding:8px 18px 8px 8px;gap:10px;max-width:calc(100vw - 24px)}
+  #orbWrap{width:52px;height:52px}
+  #wave{width:84px;height:36px}
+  #pillInfo{min-width:0}
+  #pillHint{display:none}
+  .pmCard{padding:26px 20px 22px}
 }
+@media (max-width:400px){
+  .logo .ltxt{display:none}
+  .hbtns{gap:5px}
+}
+@media (hover:none){ #pillHint{display:none} }
 </style>
 </head>
 <body>
@@ -409,7 +445,7 @@ details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;backgro
   <header>
     <div class="logo">
       <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="url(#lg)"/><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b7dff"/><stop offset="1" stop-color="#4ecdc4"/></linearGradient></defs><rect x="41" y="22" width="18" height="36" rx="9" fill="white"/><path d="M28 52c0 12.2 9.8 22 22 22s22-9.8 22-22" stroke="white" stroke-width="8" fill="none" stroke-linecap="round"/></svg>
-      Voice<span class="flow">Flow</span><span class="web">Web</span>
+      <span class="ltxt">Voice<span class="flow">Flow</span></span><span class="web">Web</span>
     </div>
 
     <div id="stats">
@@ -421,20 +457,20 @@ details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;backgro
     <div class="hbtns">
       <button class="hbtn primary" id="copyBtn" title="Copy text (Ctrl+Shift+C)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-        Copy
+        <span class="lbl">Copy</span>
       </button>
       <button class="hbtn" id="newBtn" title="New session">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        New
+        <span class="lbl">New</span>
       </button>
       <button class="hbtn" id="voiceBtn" title="Voice — read text aloud (Ctrl+Shift+Enter)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.6 5.6a9 9 0 0 1 0 12.8"/></svg>
-        Voice
+        <span class="lbl">Voice</span>
       </button>
       <button class="hbtn iconly" id="histBtn" title="History">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
       </button>
-      <button class="hbtn iconly" id="setBtn" title="Settings">
+      <button class="hbtn iconly" id="setBtn" title="Settings"><i class="sdot sbadge" id="syncBadge" data-sfha-badge hidden></i>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
       </button>
       <button class="hbtn iconly" id="themeBtn" title="Toggle theme">
@@ -516,6 +552,10 @@ details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;backgro
     <div class="srow">
       <div><div class="lab">Light theme</div><div class="sub">Switch between dark and light</div></div>
       <label class="tog"><input type="checkbox" id="themeTog"><i></i></label>
+    </div>
+    <div class="srow" id="syncRow">
+      <div><div class="lab"><span class="sdot" id="syncDot"></span>Sync</div><div class="sub" id="syncSub">Connecting…</div></div>
+      <button class="sbtn" id="syncOpen">Details</button>
     </div>
 
     <div class="cheat">
@@ -1228,6 +1268,9 @@ post("ready");
           or your own cloned voice via a local Chatterbox server
    ============================================================ */
 const $ = id => document.getElementById(id);
+/* drawers and toast sit just under the header, whose height changes on phones */
+(()=>{ const h = document.querySelector("header"), set = ()=>document.documentElement.style.setProperty("--hdr", h.offsetHeight + "px");
+  set(); if(window.ResizeObserver) new ResizeObserver(set).observe(h); addEventListener("resize", set); })();
 const doc = $("doc"), pill = $("pill"), micBtn = $("micBtn"), wave = $("wave");
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -1796,19 +1839,110 @@ $("pmGo").addEventListener("click", async ()=>{
 });
 
 /* ---------- history ---------- */
-function loadHistory(){ return JSON.parse(store.getItem("vf.history") || "[]"); }
-function saveHistory(h){ store.setItem("vf.history", JSON.stringify(h.slice(0,60))); }
+/* Storage: the shared sfha-sync layer (ToolDeck/sync.v1.js, see SYNC-CONTRACT.md) when it loads —
+   history then lives in app "voiceflow", collection "history" and syncs to paired devices.
+   Fallback (sync layer unreachable, or file://): the old localStorage list. Entries made in fallback
+   are flagged `pending` (deletes queued in vf.pendingDel) and pushed into sync on the next start.
+   Settings, TTS profiles and voices stay per device. */
+const VF_APP = "voiceflow", VF_COLL = "history", SYNC_URL = "https://weirders.github.io/ToolDeck/sync.v1.js";
+let syncOn = false, histCache = [];
+function localHistory(){ try{ return JSON.parse(store.getItem("vf.history") || "[]"); }catch(e){ return []; } }
+function saveLocalHistory(h){ store.setItem("vf.history", JSON.stringify(h.slice(0,60))); }
+function loadHistory(){ return syncOn ? histCache : localHistory(); }
+function newHistId(){
+  if(window.SfhaSync && SfhaSync.util && SfhaSync.util.uid) return SfhaSync.util.uid();
+  return crypto.randomUUID ? crypto.randomUUID() : "vf-" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+}
+async function addHistory(it){
+  if(syncOn){
+    const {id, ...payload} = it;
+    await SfhaSync.put(VF_APP, VF_COLL, {id, payload});
+    await refreshHistory();
+  } else {
+    const h = localHistory(); h.unshift({...it, pending:true}); saveLocalHistory(h);
+  }
+}
+async function delHistory(id){
+  if(syncOn){ await SfhaSync.del(VF_APP, VF_COLL, id); await refreshHistory(); return; }
+  const h = localHistory(), it = h.find(x=>String(x.id)===id);
+  if(it && !it.pending){ // already in sync: remember to delete it there too
+    const q = JSON.parse(store.getItem("vf.pendingDel") || "[]"); q.push(syncIdOf(it)); store.setItem("vf.pendingDel", JSON.stringify(q));
+  }
+  saveLocalHistory(h.filter(x=>String(x.id)!==id));
+}
+const syncIdOf = it => typeof it.id === "number" ? "vf-" + it.id : String(it.id);   // old entries had numeric ids
+async function refreshHistory(){
+  if(!syncOn) return;
+  const recs = await SfhaSync.list(VF_APP, VF_COLL);
+  histCache = recs.map(r=>({...r.payload, id:r.id})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  if($("histDrawer").classList.contains("open")) renderHistory();
+}
 function autoSave(){
   const text = tidy(committedText()).trim();
   if(!text || savedThisSession) return;
   const h = loadHistory();
   if(h[0] && h[0].text === text) return;
-  h.unshift({ id:Date.now(), date:new Date().toISOString(), text, words:wordCount(text),
-              secs:Math.round(activeMs/1000) });
-  saveHistory(h);
   savedThisSession = true;
-  renderHistory();
+  addHistory({ id:newHistId(), date:new Date().toISOString(), text, words:wordCount(text),
+               secs:Math.round(activeMs/1000) })
+    .then(renderHistory, e=>{ console.error("[VoiceFlowWeb] save failed", e); toast("Couldn't save to history"); savedThisSession = false; });
 }
+
+/* ---------- sync ---------- */
+function loadSyncLib(ms){
+  return new Promise(res=>{
+    if(window.SfhaSync) return res(true);
+    if(!/^https?:$/.test(location.protocol)) return res(false);
+    const el = document.createElement("script"); let done = false; const fin = v=>{ if(!done){ done = true; res(v); } };
+    el.src = SYNC_URL; el.onload = ()=>fin(!!window.SfhaSync); el.onerror = ()=>fin(false);
+    setTimeout(()=>fin(!!window.SfhaSync), ms); document.head.appendChild(el);
+  });
+}
+function paintSync(st){
+  let cls = "", txt;
+  if(!syncOn){ txt = "Off: sync layer not available. History is kept on this device only."; }
+  else {
+    const open = (st.connections||[]).filter(c=>c.state==="open").length;
+    if(!st.leaderPresent){ txt = "Starting…"; }
+    else if(st.broker === "online"){ cls = open ? "on" : "busy"; txt = open ? `Connected to ${open} device${open>1?"s":""}` : "Online, no paired device connected"; }
+    else if(st.broker === "connecting"){ cls = "busy"; txt = "Connecting…"; }
+    else if(["id-taken","error","disabled"].includes(st.broker)){ cls = "err"; txt = "Problem: open Details"; }
+    else { txt = "Offline: changes sync when you're back online"; }
+    if(st.lastSync && st.lastSync.at) txt += " · last sync " + fmtDate(new Date(st.lastSync.at).toISOString());
+  }
+  for(const d of [$("syncDot"), $("syncBadge")]) d.className = d.className.replace(/\b(on|busy|err)\b/g,"").trim() + (cls ? " " + cls : "");
+  $("syncBadge").hidden = !syncOn;
+  $("syncSub").textContent = txt;
+  $("syncOpen").disabled = !syncOn;
+}
+async function startSync(){
+  if(!(await loadSyncLib(6000))){ paintSync({}); return; }
+  try{
+    await SfhaSync.init({app:VF_APP});
+    await SfhaSync.migrate("v1", async ()=>{ // first start on this device: copy the old local history in
+      for(const it of localHistory()){
+        const {id, pending, ...payload} = it;
+        await SfhaSync.put(VF_APP, VF_COLL, {id:syncIdOf(it), payload, updatedAt:it.date || new Date(0).toISOString()}, {keepStamp:true, silent:true});
+      }
+    });
+    syncOn = true;
+    // push what was done while the sync layer was unavailable
+    const h = localHistory(), pend = h.filter(x=>x.pending), dels = JSON.parse(store.getItem("vf.pendingDel") || "[]");
+    for(const it of pend){ const {id, pending, ...payload} = it; await SfhaSync.put(VF_APP, VF_COLL, {id:syncIdOf(it), payload}); }
+    for(const id of dels) await SfhaSync.del(VF_APP, VF_COLL, id);
+    if(pend.length) saveLocalHistory(h.map(x=>{ const {pending, ...rest} = x; return rest; }));
+    if(dels.length) store.removeItem("vf.pendingDel");
+    SfhaSync.onChange(({app})=>{ if(app === VF_APP) refreshHistory(); });
+    SfhaSync.onStatus(paintSync);
+    await refreshHistory();
+    renderHistory();
+    paintSync(SfhaSync.status());
+  }catch(e){
+    console.error("[VoiceFlowWeb] sync start failed, using local history", e);
+    syncOn = false; paintSync({});
+  }
+}
+$("syncOpen").addEventListener("click", ()=>{ if(syncOn) SfhaSync.openPanel(); });
 function fmtDate(iso){
   const d = new Date(iso);
   return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " · " +
@@ -1818,7 +1952,7 @@ function renderHistory(){
   const h = loadHistory(), box = $("histList");
   if(!h.length){ box.innerHTML = '<div class="hempty">Nothing here yet.<br>Your finished dictations will appear<br>here automatically.</div>'; return; }
   box.innerHTML = h.map(it=>`
-    <div class="hcard" data-id="${it.id}">
+    <div class="hcard" data-id="${esc(String(it.id))}">
       <div class="hmeta"><span>${fmtDate(it.date)}</span><span>${it.words} words · ${Math.floor(it.secs/60)}:${String(it.secs%60).padStart(2,"0")}</span></div>
       <div class="hprev">${esc(it.text)}</div>
       <div class="hacts">
@@ -1832,12 +1966,12 @@ function renderHistory(){
 $("histList").addEventListener("click",(e)=>{
   const btn = e.target.closest("button"), card = e.target.closest(".hcard");
   if(!card) return;
-  const id = +card.dataset.id, h = loadHistory(), it = h.find(x=>x.id===id);
+  const id = card.dataset.id, h = loadHistory(), it = h.find(x=>String(x.id)===id);
   if(!it) return;
   const act = btn ? btn.dataset.act : "load";
   if(act === "speak"){ ttsSpeakText(it.text); }
   else if(act === "copy"){ navigator.clipboard.writeText(it.text); toast("Copied to clipboard"); }
-  else if(act === "del"){ saveHistory(h.filter(x=>x.id!==id)); renderHistory(); toast("Deleted"); }
+  else if(act === "del"){ delHistory(id).then(()=>{ renderHistory(); toast("Deleted"); }, e=>{ console.error(e); toast("Couldn't delete"); }); }
   else { // load
     if(listening) stopSession();
     baseText = it.text; chunks = []; lastCommitLen = 0;
@@ -2753,9 +2887,11 @@ function ttsSpeakText(text){ // used by history cards
 initTTS();
 
 /* ---------- boot ---------- */
+if(matchMedia("(hover:none)").matches) doc.dataset.hint = "Tap the mic and just start talking…";  // no keyboard shortcut on a phone
 render(false);
 renderHistory();
 updateStats();
+startSync();
 if(!SR){
   $("unsupported").style.display = "block";
   $("pillStatus").textContent = "Unsupported browser";
