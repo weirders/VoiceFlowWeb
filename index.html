@@ -134,6 +134,35 @@ header{
   box-shadow:0 0 12px var(--glow);
 }
 @keyframes cursorPulse{0%,100%{transform:scale(.7);opacity:.6}50%{transform:scale(1.15);opacity:1}}
+/* ---------- processing chips (local engines) ----------
+   One chip per spoken part, inline where its text will land. The bars are that part's own
+   waveform; the bright layer is clipped to --p (0..1). No text nodes inside (the label is
+   ::after) so doc.innerText never picks up "42%". */
+#doc .seg{
+  display:inline-flex;align-items:center;gap:9px;vertical-align:middle;
+  height:30px;padding:0 11px 0 9px;margin:0 3px;border-radius:999px;
+  background:color-mix(in srgb, var(--accent) 9%, var(--surface));
+  border:1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  font-family:'Inter',system-ui,sans-serif;font-style:normal;user-select:none;
+  animation:segIn .35s cubic-bezier(.2,.9,.3,1.2) both;
+}
+@keyframes segIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
+#doc .seg .sb{position:relative;display:block;height:18px;width:calc(var(--n) * 4px)}
+#doc .seg .sb > span{position:absolute;inset:0;display:flex;align-items:center;gap:1.5px}
+#doc .seg .sb i{display:block;width:2.5px;height:calc(18px * var(--h));min-height:3px;border-radius:2px;background:var(--text-ghost);opacity:.55}
+#doc .seg .sb .fill{clip-path:inset(0 calc(100% - var(--p) * 100%) 0 0);transition:clip-path .25s linear}
+#doc .seg .sb .fill i{background:linear-gradient(180deg,var(--accent-2),var(--accent));opacity:1}
+#doc .seg::after{
+  content:attr(data-label);font-size:12px;font-weight:600;letter-spacing:.2px;
+  font-variant-numeric:tabular-nums;color:var(--accent);min-width:3.2em;
+}
+#doc .seg[data-state="queued"]{background:var(--surface);border-color:var(--border)}
+#doc .seg[data-state="queued"]::after{color:var(--text-dim);font-weight:500}
+#doc .seg[data-state="queued"] .sb{animation:segWait 1.6s ease-in-out infinite}
+@keyframes segWait{0%,100%{opacity:.55}50%{opacity:1}}
+#doc .seg[data-state="late"]::after{color:var(--text-dim)}
+#doc .seg[data-state="late"] .sb .fill{animation:segWait 1.2s ease-in-out infinite}
+@media (max-width:720px){ #doc .seg{height:26px;padding:0 9px 0 7px;gap:7px} #doc .seg .sb{height:15px} }
 /* word pop-in */
 .wpop{display:inline;animation:wordIn .34s cubic-bezier(.2,.9,.3,1.2) both}
 @keyframes wordIn{from{opacity:0;filter:blur(4px)}to{opacity:1;filter:blur(0)}}
@@ -428,6 +457,7 @@ details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;backgro
   #wave{width:84px;height:36px}
   #pillInfo{min-width:0}
   #pillHint{display:none}
+  #pillStatus{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
   .pmCard{padding:26px 20px 22px}
 }
 @media (max-width:400px){
@@ -1408,6 +1438,10 @@ function render(popLast){
     html = stable + '<span class="wpop">' + fresh + '</span>';
   }
   lastCommitLen = full.length;
+  if(Segs.list.length){
+    const sep = full && !/[\s\n]$/.test(full) ? " " : "";
+    html += sep + Segs.list.map(Segs.html).join("");
+  }
   if(interimText){
     const it = tidy(stripFillers(interimText));
     const sep = full && !/[\s\n]$/.test(full) ? " " : "";
@@ -1573,11 +1607,77 @@ const Redux = {
   }
 };
 
+/* ---------- processing progress for local engines ----------
+   Engines give no progress while transcribing, so the percentage is an estimate from how fast this
+   engine has been on this device (ms of processing per second of speech, learned per engine and
+   saved per device). Before the first measurement it uses a cautious default. Past the estimate the
+   chip slows down near 99% and says "finishing…" instead of lying about being done. */
+const Speed = {
+  DEF:{ redux:350, parakeet:450, whisper:600 }, CPU_X:3, BASE:180,
+  key(){ const dev = LocalSTT.kind === "redux" ? (Redux.device || "cpu") : (navigator.gpu ? "gpu" : "cpu");
+         return LocalSTT.kind + ":" + (dev === "webgpu" ? "gpu" : dev); },
+  all(){ try{ return JSON.parse(store.getItem("vf.sttSpeed") || "{}"); }catch(e){ return {}; } },
+  rate(){ const k = this.key(), v = this.all()[k]; if(v) return v;
+          const d = this.DEF[LocalSTT.kind] || 500; return k.endsWith(":gpu") ? d : d * this.CPU_X; },
+  expectMs(secs){ return this.BASE + this.rate() * secs; },
+  learn(secs, ms){
+    if(secs < 0.5 || !(ms > 0)) return;
+    const k = this.key(), all = this.all(), obs = Math.max(20, (ms - this.BASE) / secs);
+    all[k] = all[k] ? Math.round(all[k] * 0.65 + obs * 0.35) : Math.round(obs);
+    store.setItem("vf.sttSpeed", JSON.stringify(all));
+  }
+};
+const Segs = {
+  list:[], next:1, raf:0,
+  add(pcm){
+    const N = Math.max(8, Math.min(28, Math.round(pcm.length / 16000 * 3))), step = Math.floor(pcm.length / N) || 1;
+    const lv = [];
+    for(let b = 0; b < N; b++){ let m = 0; for(let i = b * step, e = Math.min(pcm.length, i + step); i < e; i += 8) m = Math.max(m, Math.abs(pcm[i])); lv.push(m); }
+    const top = Math.max(...lv, 1e-4);
+    const seg = { id:this.next++, secs:pcm.length / 16000, bars:lv.map(v=>Math.max(.12, Math.sqrt(v / top))), state:"queued", p:0, t0:0, exp:0 };
+    this.list.push(seg); this.paint(); return seg;
+  },
+  begin(seg){ seg.state = "work"; seg.t0 = performance.now(); seg.exp = Speed.expectMs(seg.secs); this.loop(); },
+  label(seg){ return seg.state === "queued" ? "queued" : seg.state === "late" ? "finishing…" : Math.round(seg.p * 100) + "%"; },
+  html(seg){
+    const bars = seg.bars.map(h=>`<i style="--h:${h.toFixed(2)}"></i>`).join("");
+    return `<span class="seg" contenteditable="false" data-seg="${seg.id}" data-state="${seg.state}" data-label="${Segs.label(seg)}" `+
+           `title="${seg.secs.toFixed(1)} s of speech" style="--p:${seg.p.toFixed(3)};--n:${seg.bars.length}">`+
+           `<span class="sb"><span>${bars}</span><span class="fill">${bars}</span></span></span>`;
+  },
+  tick(){
+    const now = performance.now();
+    for(const seg of this.list){
+      if(seg.state === "queued") continue;
+      const e = (now - seg.t0) / seg.exp;
+      seg.p = e < .9 ? e : .9 + .09 * (1 - Math.exp(-(e - .9) * 2.5));
+      seg.state = e > 1.15 ? "late" : "work";
+      const el = doc.querySelector(`.seg[data-seg="${seg.id}"]`);
+      if(el){ el.style.setProperty("--p", seg.p.toFixed(3)); el.dataset.state = seg.state; el.dataset.label = this.label(seg); }
+    }
+    this.pill();
+  },
+  loop(){
+    if(this.raf) return;
+    const f = ()=>{ this.tick(); this.raf = this.list.some(s=>s.state !== "queued") ? requestAnimationFrame(f) : 0; };
+    this.raf = requestAnimationFrame(f);
+  },
+  pill(){ // after you stop, the pill shows the remaining work instead of "Paused"
+    if(listening) return;
+    const el = $("pillStatus");
+    if(!this.list.length){ if(/^Transcribing/.test(el.textContent)) el.textContent = "Paused"; return; }
+    const cur = this.list.find(s=>s.state !== "queued"), more = this.list.length - 1;
+    el.textContent = (!cur ? "Transcribing…" : cur.state === "late" ? "Finishing…" : "Transcribing " + Math.round(cur.p * 100) + "%")
+                   + (more > 0 ? " · " + more + " more" : "");
+  },
+  paint(){ render(false); this.pill(); }
+};
+
 const LocalSTT = {
   kind:null, model:null, asr:null,
   srcNode:null, proc:null, active:false,
   buf:[], bufLen:0, preBuf:[], speech:false, speechMs:0, silenceMs:0,
-  busy:false, q:Promise.resolve(), interimTimer:null,
+  busy:false, q:Promise.resolve(), interimTimer:null, interimP:null,
 
   async load(kind, onStatus){
     if(this.kind === kind && (this.model || this.asr || (kind === "redux" && Redux.ready))) return;
@@ -1679,23 +1779,30 @@ const LocalSTT = {
 
   _finalize(){
     const pcm = this._takePcm();
+    interimText = "";                           // the live preview of this part becomes the chip
+    const seg = Segs.add(pcm);
     this.q = this.q.then(async ()=>{
-      this.busy = true;
-      try{
-        const text = await this._infer(pcm);
-        if(text){ interimText = ""; commitFinal(text); }
-      }catch(e){ console.warn("[VoiceFlowWeb] transcribe error:", e); }
+      if(this.interimP) await this.interimP;    // let a running preview finish, then start the clock
+      this.busy = true; Segs.begin(seg);
+      let text = "", ok = false;
+      try{ text = await this._infer(pcm); ok = true; }
+      catch(e){ console.warn("[VoiceFlowWeb] transcribe error:", e); }
       this.busy = false;
+      Segs.list = Segs.list.filter(x=>x !== seg);  // remove before commitFinal renders
+      if(ok && seg.t0) Speed.learn(seg.secs, performance.now() - seg.t0);
+      if(text) commitFinal(text); else render(false);
+      Segs.pill();
     });
   },
 
   _maybeInterim(){
-    if(!this.active || !this.speech || this.busy || this.bufLen < 16000 * 1.2) return;
+    // previews never hold up finished parts: skip while any part is waiting
+    if(!this.active || !this.speech || this.busy || Segs.list.length || this.bufLen < 16000 * 1.2) return;
     const pcm = this._takePcm();
     this.busy = true;
-    this._infer(pcm).then(text=>{
+    this.interimP = this._infer(pcm).then(text=>{
       if(this.active && this.speech && text){ interimText = text; render(false); }
-    }).catch(()=>{}).finally(()=>{ this.busy = false; });
+    }).catch(()=>{}).finally(()=>{ this.busy = false; this.interimP = null; });
   },
 
   async _infer(pcm){
@@ -1799,6 +1906,7 @@ function stopSession(){
   interimText = "";
   doc.contentEditable = "true";
   $("pillStatus").textContent = "Paused";
+  Segs.pill();
   $("pillHint").innerHTML = '<kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd> to resume';
   blip(false);
   render(false);
