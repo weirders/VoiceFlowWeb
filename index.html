@@ -465,6 +465,10 @@ details.vhelp code{font-family:'JetBrains Mono',monospace;font-size:11px;backgro
   .hbtns{gap:5px}
 }
 @media (hover:none){ #pillHint{display:none} }
+/* ---- Tool family (ToolDeck/STYLE.md): shared UI font, control shape and focus ring. Colours stay per app. ---- */
+button,input,select,textarea{font-family:inherit}
+button:focus-visible,a:focus-visible,select:focus-visible,[role=menuitem]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* ---- end tool family ---- */
 </style>
 </head>
 <body>
