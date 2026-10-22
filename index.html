@@ -550,12 +550,13 @@ button:focus-visible,a:focus-visible,select:focus-visible,[role=menuitem]:focus-
   <div class="dhead"><h2>Settings</h2><button class="xbtn" data-close="setDrawer">✕</button></div>
   <div class="dbody">
     <div class="srow">
-      <div><div class="lab">Speech engine</div><div class="sub" id="engineSub">Built-in: fastest, needs internet &middot; Parakeet, Parakeet Redux &amp; Whisper: run on your device, private, work offline after a one-time model download (Parakeet &asymp;1&nbsp;GB, Redux &asymp;360&nbsp;MB, Whisper &asymp;80&nbsp;MB) &middot; Redux is a 1.58-bit Parakeet: much smaller, slightly weaker in heavy background noise</div></div>
+      <div><div class="lab">Speech engine</div><div class="sub" id="engineSub">Built-in: fastest, needs internet &middot; Parakeet, Parakeet Redux, Whisper &amp; Whistle: run on your device, private, work offline after a one-time model download (Parakeet &asymp;1&nbsp;GB, Redux &asymp;360&nbsp;MB, Whisper &asymp;80&nbsp;MB, Whistle &asymp;18&nbsp;MB) &middot; Redux is a 1.58-bit Parakeet: much smaller, slightly weaker in heavy background noise &middot; Whistle (Cactus) is tiny and runs on the processor, no graphics card needed; English, Dutch, German, French, Spanish, Italian &amp; Polish</div></div>
       <select id="engineSel">
         <option value="webspeech">Built-in (online)</option>
         <option value="parakeet">Parakeet (local)</option>
         <option value="redux">Parakeet Redux (local)</option>
         <option value="whisper">Whisper (local)</option>
+        <option value="whistle">Whistle (local, tiny)</option>
       </select>
     </div>
     <div class="srow">
@@ -923,6 +924,70 @@ self.onmessage = (ev) => {
       }
     }catch(e){ console.error(e); post("error", { id: m.id, message: String(e?.message || e) }); }
   });
+};
+</script>
+<!-- Cactus Whistle speech-to-text worker (classic worker: the engine is an Emscripten script loaded with importScripts).
+     Model: Cactus-Compute/whistle (Apache-2.0), 16.9 MB, CPU only, en/de/fr/es/it/nl/pl.
+     Engine: the official needle wasm build from Cactus-Compute/needle3 (single-threaded, no special server headers).
+     Both are pinned to a Hugging Face commit so an upstream change can't break the app.
+     in : {type:"load"}                              out: progress / status / loaded / error
+     in : {type:"transcribe", id, pcm, lang}         out: result {id, text, language} / error {id} -->
+<script type="text/js-worker" id="whistleWorkerSrc">
+const ENGINE = "https://huggingface.co/Cactus-Compute/needle3/resolve/d6c7d6a2e9655505e0f8e23339356dd1705900eb/wasm/";
+const MODEL  = "https://huggingface.co/Cactus-Compute/whistle/resolve/741118687e1f008f06d1351a402a731274789790/whistle.cact";
+const CACHE_NAME = "voiceflowweb-whistle-v1";
+const OUT_CAP = 1 << 16;
+let M = null, outPtr = 0;
+const post = (type, data = {}) => self.postMessage({ type, ...data });
+
+async function getFile(url, onBytes){
+  let cache = null; try{ cache = await caches.open(CACHE_NAME); }catch{}
+  if(cache){ const hit = await cache.match(url); if(hit){ const ab = await hit.arrayBuffer(); onBytes(ab.byteLength, true); return new Uint8Array(ab); } }
+  const r = await fetch(url); if(!r.ok) throw new Error(url.split("/").pop() + ": HTTP " + r.status);
+  const total = +r.headers.get("content-length") || 0, parts = []; let got = 0;
+  const rd = r.body.getReader();
+  for(;;){ const { done, value } = await rd.read(); if(done) break; parts.push(value); got += value.length; onBytes(value.length, false, total); }
+  const buf = new Uint8Array(got); let o = 0; for(const c of parts){ buf.set(c, o); o += c.length; }
+  if(total && got !== total) throw new Error("download cut short");
+  if(cache){ try{ await cache.put(url, new Response(buf, { headers:{ "content-type":"application/octet-stream" } })); }catch{} }
+  return buf;
+}
+
+async function load(){
+  let loaded = 0, cached = true;
+  const TOTAL = 16919407 + 930545 + 62082;          // model + engine, for an honest percentage
+  const onBytes = (n, hit) => { loaded += n; if(!hit) cached = false; post("progress", { loaded, total: TOTAL }); };
+  const [js, wasm, cact] = await Promise.all([ getFile(ENGINE + "needle.js", onBytes), getFile(ENGINE + "needle.wasm", onBytes), getFile(MODEL, onBytes) ]);
+  post("status", { text: "Starting Whistle…" });
+  importScripts(URL.createObjectURL(new Blob([js], { type:"text/javascript" })));
+  M = await self.createNeedle({ wasmBinary: wasm });
+  const p = M._malloc(cact.length);                 // the engine reads the model in place: never freed
+  M.HEAPU8.set(cact, p);
+  if(M._needle_load(p, BigInt(cact.length)) < 0) throw new Error(cstr(M._needle_last_error()) || "model load failed");
+  outPtr = M._malloc(OUT_CAP);
+  post("loaded", { device:"cpu", fromCache: cached });
+}
+
+function cstr(ptr){ const h = M.HEAPU8; let e = ptr; while(h[e]) e++; return new TextDecoder().decode(h.subarray(ptr, e)); }
+function cput(s){ if(!s) return 0; const b = new TextEncoder().encode(s + "\0"), q = M._malloc(b.length); M.HEAPU8.set(b, q); return q; }
+
+function transcribe(pcm, lang){
+  const n = pcm.length, a = M._malloc(n * 4), l = cput(lang);
+  try{
+    new Float32Array(M.HEAPU8.buffer, a, n).set(pcm);
+    const rc = M._needle_transcribe(a, n, l, 0, 0, outPtr, OUT_CAP);
+    if(rc < 0) throw new Error(cstr(M._needle_last_error()) || "transcribe failed");
+    return JSON.parse(cstr(outPtr));
+  } finally { M._free(a); if(l) M._free(l); }
+}
+
+self.onmessage = async ({ data:m }) => {
+  if(m.type === "load"){
+    try{ await load(); }catch(e){ post("error", { message: String(e && e.message || e) }); }
+  } else if(m.type === "transcribe"){
+    try{ const r = transcribe(m.pcm, m.lang); post("result", { id:m.id, text:r.text || "", language:r.language || "" }); }
+    catch(e){ post("error", { id:m.id, message: String(e && e.message || e) }); }
+  }
 };
 </script>
 
@@ -1563,7 +1628,7 @@ function blip(up){
   }catch(e){}
 }
 
-/* ---------- local engines: Parakeet.js & Whisper (transformers.js) ---------- */
+/* ---------- local engines: Parakeet.js, Whisper (transformers.js), Redux & Whistle (workers) ---------- */
 const WHISPER_LANG = { en:"english", nl:"dutch", de:"german", fr:"french", es:"spanish", it:"italian", pt:"portuguese" };
 
 /* Parakeet Redux runs in a dedicated worker (built from the embedded source above) */
@@ -1611,14 +1676,54 @@ const Redux = {
   }
 };
 
+/* Cactus Whistle runs in its own worker too; same message shape as Redux */
+const WHISTLE_LANGS = new Set(["en","de","fr","es","it","nl","pl"]);
+const Whistle = {
+  worker:null, ready:false, nextId:1, pending:new Map(),
+  load(onStatus){
+    if(this.ready) return Promise.resolve();
+    if(this._loading) return this._loading;
+    this._loading = new Promise((resolve, reject)=>{
+      const url = URL.createObjectURL(new Blob([$("whistleWorkerSrc").textContent], { type:"text/javascript" }));
+      this.worker = new Worker(url);
+      const fail = msg => { this._loading = null; try{ this.worker.terminate(); }catch(e){} this.worker = null; reject(new Error(msg)); };
+      this.worker.onmessage = ({ data:m })=>{
+        if(m.type === "progress"){
+          onStatus("Downloading Whistle… " + Math.min(100, Math.round(100 * m.loaded / m.total)) + "% (" + (m.loaded / 1e6).toFixed(1) + "/" + (m.total / 1e6).toFixed(0) + " MB)");
+        } else if(m.type === "status"){ onStatus(m.text); }
+        else if(m.type === "loaded"){
+          this.ready = true; this._loading = null;
+          toast("Whistle ready · processor" + (m.fromCache ? " · cached" : ""));
+          resolve();
+        } else if(m.type === "result"){
+          const p = this.pending.get(m.id); if(p){ this.pending.delete(m.id); p.resolve(m.text || ""); }
+        } else if(m.type === "error"){
+          if(m.id && this.pending.has(m.id)){ const p = this.pending.get(m.id); this.pending.delete(m.id); p.reject(new Error(m.message)); }
+          else if(!this.ready) fail(m.message);
+        }
+      };
+      this.worker.onerror = e => { if(!this.ready) fail(e.message || "worker error"); };
+      this.worker.postMessage({ type:"load" });
+    });
+    return this._loading;
+  },
+  transcribe(pcm){
+    const id = this.nextId++, l = settings.lang.slice(0,2);
+    return new Promise((resolve, reject)=>{
+      this.pending.set(id, { resolve, reject });
+      this.worker.postMessage({ type:"transcribe", id, pcm, lang: WHISTLE_LANGS.has(l) ? l : null }, [pcm.buffer]);
+    });
+  }
+};
+
 /* ---------- processing progress for local engines ----------
    Engines give no progress while transcribing, so the percentage is an estimate from how fast this
    engine has been on this device (ms of processing per second of speech, learned per engine and
    saved per device). Before the first measurement it uses a cautious default. Past the estimate the
    chip slows down near 99% and says "finishing…" instead of lying about being done. */
 const Speed = {
-  DEF:{ redux:350, parakeet:450, whisper:600 }, CPU_X:3, BASE:180,
-  key(){ const dev = LocalSTT.kind === "redux" ? (Redux.device || "cpu") : (navigator.gpu ? "gpu" : "cpu");
+  DEF:{ redux:350, parakeet:450, whisper:600, whistle:90 }, CPU_X:3, BASE:180,
+  key(){ const dev = LocalSTT.kind === "redux" ? (Redux.device || "cpu") : LocalSTT.kind === "whistle" ? "cpu" : (navigator.gpu ? "gpu" : "cpu");
          return LocalSTT.kind + ":" + (dev === "webgpu" ? "gpu" : dev); },
   all(){ try{ return JSON.parse(store.getItem("vf.sttSpeed") || "{}"); }catch(e){ return {}; } },
   rate(){ const k = this.key(), v = this.all()[k]; if(v) return v;
@@ -1684,12 +1789,15 @@ const LocalSTT = {
   busy:false, q:Promise.resolve(), interimTimer:null, interimP:null,
 
   async load(kind, onStatus){
-    if(this.kind === kind && (this.model || this.asr || (kind === "redux" && Redux.ready))) return;
+    if(this.kind === kind && (this.model || this.asr || (kind === "redux" && Redux.ready) || (kind === "whistle" && Whistle.ready))) return;
     this.model = null; this.asr = null; this.kind = null;
     const gpu = !!navigator.gpu;
     if(kind === "redux"){
       onStatus("Loading Parakeet Redux…");
       await Redux.load(onStatus);
+    } else if(kind === "whistle"){
+      onStatus("Loading Whistle…");
+      await Whistle.load(onStatus);
     } else if(kind === "parakeet"){
       onStatus("Loading Parakeet runtime…");
       const pk = await import("https://cdn.jsdelivr.net/npm/parakeet.js@1.4.4/+esm");
@@ -1813,6 +1921,8 @@ const LocalSTT = {
     let text = "";
     if(this.kind === "redux" && Redux.ready){
       text = await Redux.transcribe(pcm);
+    } else if(this.kind === "whistle" && Whistle.ready){
+      text = await Whistle.transcribe(pcm);
     } else if(this.kind === "parakeet" && this.model){
       const r = await this.model.transcribe(pcm, 16000, {});
       text = (r && r.utterance_text) || "";
