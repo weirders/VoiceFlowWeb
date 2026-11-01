@@ -274,6 +274,8 @@ select option{background:var(--bg-soft);color:var(--text)}
 .hcard .hmeta{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-dim);margin-bottom:7px}
 .hcard .hprev{font-family:var(--canvas-font);font-size:15.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .hcard .hacts{display:flex;gap:8px;margin-top:10px}
+.hexport{margin-left:auto;margin-right:8px;background:transparent;border:1px solid rgba(124,108,255,.35);color:inherit;border-radius:8px;padding:5px 10px;font:inherit;font-size:13px;cursor:pointer}
+.hexport:hover{border-color:rgba(124,108,255,.7)}
 .hacts button{
   font-size:11.5px;font-family:inherit;padding:5px 10px;border-radius:8px;cursor:pointer;
   background:var(--surface-2);border:1px solid var(--border);color:var(--text);
@@ -541,7 +543,7 @@ button:focus-visible,a:focus-visible,select:focus-visible,[role=menuitem]:focus-
 
 <!-- history drawer -->
 <div class="drawer" id="histDrawer">
-  <div class="dhead"><h2>History</h2><button class="xbtn" data-close="histDrawer">✕</button></div>
+  <div class="dhead"><h2>History</h2><button class="hexport" id="histExport" title="Download your history to move it to EHS ToolDeck (VoiceFlow → History → Import)">Export</button><button class="xbtn" data-close="histDrawer">✕</button></div>
   <div class="dbody" id="histList"></div>
 </div>
 
@@ -2093,6 +2095,19 @@ async function delHistory(id){
   saveLocalHistory(h.filter(x=>String(x.id)!==id));
 }
 const syncIdOf = it => typeof it.id === "number" ? "vf-" + it.id : String(it.id);   // old entries had numeric ids
+/* Export for moving the history to EHS ToolDeck's VoiceFlow (History → Import). Format:
+   {"app":"voiceflow","format":1,"exportedAt":ISO,"history":[{id,date,text,words,secs}]} */
+function exportHistory(){
+  const history = loadHistory().map(h=>({ id:h.id, date:h.date, text:h.text, words:h.words, secs:h.secs }));
+  if(!history.length){ toast("History is empty"); return; }
+  const blob = new Blob([JSON.stringify({ app:"voiceflow", format:1, exportedAt:new Date().toISOString(), history }, null, 1)], { type:"application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "voiceflow-history-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  toast(history.length + " item(s) exported");
+}
+document.addEventListener("click", e=>{ if(e.target && e.target.id === "histExport") exportHistory(); });
+
 async function refreshHistory(){
   if(!syncOn) return;
   const recs = await SfhaSync.list(VF_APP, VF_COLL);
